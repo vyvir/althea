@@ -304,7 +304,7 @@ class SplashScreen(Handy.Window):
         if not os.path.isfile(f"{(altlinuxpath)}/anisette_server"):
             self.lbl1.set_text("Downloading anisette_server...")
             r = requests.get(
-                "https://github.com/Dadoum/Provision/releases/download/1.0.0/anisette_server-x86_64",
+                "https://github.com/Dadoum/Provision/releases/download/1.1.0/anisette_server-x86_64",
                 allow_redirects=True,
             )
             open(f"{(altlinuxpath)}/anisette_server", "wb").write(r.content)
