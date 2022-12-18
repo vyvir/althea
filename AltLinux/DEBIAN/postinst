@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -ex
+
+AltLinux_PATH="/usr/lib/altlinux"
+USER=$SUDO_USER
+
+if [ -d "$AltLinux_PATH" ]; then
+    sudo chown -R "$USER:$USER" "$AltLinux_PATH"
+fi
+exit 0
