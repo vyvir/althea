@@ -211,7 +211,7 @@ def on_abtdlg(self):
     )  # , 'Provision made by', 'Dadoum'])
     about.set_artists(["nebula"])
     about.set_comments("A GUI for AltServer-Linux written in Python.")
-    about.set_website("https://github.com/maxasix/AltLinux")
+    about.set_website("https://github.com/i-love-altlinux/AltLinux")
     about.set_website_label("Github")
     about.set_copyright("GUI by maxasix")
     about.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
@@ -931,7 +931,7 @@ def notify():
     if (connectioncheck()) == True:
         LatestVersion = (
             urllib.request.urlopen(
-                "https://raw.githubusercontent.com/maxasix/AltLinux/main/resources/version"
+                "https://raw.githubusercontent.com/i-love-altlinux/AltLinux/main/resources/version"
             )
             .readline()
             .rstrip()
@@ -1038,7 +1038,7 @@ def win2(_):
 
 def actionCallback(notification, action, user_data=None):
     Gtk.show_uri_on_window(
-        None, "https://github.com/maxasix/AltLinux/releases", Gdk.CURRENT_TIME
+        None, "https://github.com/i-love-altlinux/AltLinux/releases", Gdk.CURRENT_TIME
     )
     quitit()
 

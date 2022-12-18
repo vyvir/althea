@@ -1,5 +1,5 @@
 # AltLinux
-<img src="https://github.com/maxasix/AltLinux/blob/main/resources/4.png" alt="AltLinux Logo"> 
+<img src="https://github.com/i-love-altlinux/AltLinux/blob/main/resources/4.png" alt="AltLinux Logo">
 
 AltLinux is a GUI for AltServer-Linux that allows to easily sideload apps onto an iPhone, an iPad, or an iPod Touch. It supports iOS 12.2 and later.
 
@@ -15,7 +15,7 @@ The program is in its very early state, so if you're experiencing issues or want
 
 ## Install AltLinux
 
-AltLinux is available for Ubuntu 22.04 and Ubuntu 20.04. 
+AltLinux is available for Ubuntu 22.04 and Ubuntu 20.04.
 
 Derivatives, such as Linux Mint and Pop!_ OS should also work. To make sure which DEB package to pick, run the following command:
 
@@ -31,7 +31,7 @@ python3 --version
 | elementary OS 7      | elementary OS 6   |
 | Zorin OS 17          | Zorin OS 16       |
 
-If you're running Ubuntu 22.04 or any distro based on it (such as Mint 21), install the DEB package [from here](https://github.com/maxasix/AltLinux/releases). 
+If you're running Ubuntu 22.04 or any distro based on it (such as Mint 21), install the DEB package [from here](https://github.com/i-love-altlinux/AltLinux/releases).
 
 If you're running Ubuntu 20.04 or any distro based on it (such as Mint 20), run the following commands:
 ```
@@ -40,7 +40,7 @@ sudo apt update
 sudo apt install libhandy-1-0 libhandy-1-dev
 ```
 
-Then you can install the DEB package [from here](https://github.com/maxasix/AltLinux/releases).
+Then you can install the DEB package [from here](https://github.com/i-love-altlinux/AltLinux/releases).
 
 If you use Arch Linux, you can use [the AUR package](https://aur.archlinux.org/packages/altlinux).
 
@@ -77,9 +77,9 @@ sudo add-apt-repository universe -y
 Install the dependencies:
 ```
 sudo apt-get install binutils python3-pip git gir1.2-appindicator3-0.1 usbmuxd libimobiledevice6 libimobiledevice-utils wget curl libavahi-compat-libdnssd-dev zlib1g-dev unzip usbutils
-``` 
+```
 
-IF YOU'RE RUNNING UBUNTU 20.04 OR ITS [DERIVATIVES](https://github.com/maxasix/AltLinux#install-altlinux):
+IF YOU'RE RUNNING UBUNTU 20.04 OR ITS [DERIVATIVES](https://github.com/i-love-altlinux/AltLinux#install-altlinux):
 ```
 sudo add-apt-repository ppa:apandada1/libhandy-1
 sudo apt update
@@ -88,16 +88,16 @@ sudo apt install libhandy-1-0 libhandy-1-dev
 
 Run the following commands:
 ```
-git clone https://github.com/maxasix/AltLinux
-```  
+git clone https://github.com/i-love-altlinux/AltLinux
+```
 
 ```
 cd AltLinux
-```  
+```
 
 ```
 python3 main.py
-```  
+```
 
 ### Fedora:
 
@@ -108,16 +108,16 @@ sudo dnf install binutils python3-pip git libappindicator-gtk3 usbmuxd libimobil
 
 Run the following commands:
 ```
-git clone https://github.com/maxasix/AltLinux
-```  
+git clone https://github.com/i-love-altlinux/AltLinux
+```
 
 ```
 cd AltLinux
-```  
+```
 
 ```
 python3 main.py
-```  
+```
 
 ### Arch Linux
 
@@ -128,16 +128,16 @@ sudo pacman -S binutils wget curl git python-pip libappindicator-gtk3 usbmuxd li
 
 Run the following commands:
 ```
-git clone https://github.com/maxasix/AltLinux
-```  
+git clone https://github.com/i-love-altlinux/AltLinux
+```
 
 ```
 cd AltLinux
-```  
+```
 
 ```
 python3 main.py
-```  
+```
 
 ## Compile the DEB package
 Add the `universe` repository:
@@ -149,7 +149,7 @@ sudo add-apt-repository universe -y
 Install the dependencies:
 ```
 sudo apt-get install binutils python3-pip git gir1.2-appindicator3-0.1 usbmuxd libimobiledevice6 libimobiledevice-utils wget curl libavahi-compat-libdnssd-dev zlib1g-dev unzip usbutils
-```  
+```
 
 If you're running Ubuntu 20.04 or any distro based on it (such as Mint 20), run the following commands:
 ```
@@ -157,27 +157,27 @@ sudo add-apt-repository ppa:apandada1/libhandy-1
 sudo apt update
 sudo apt install libhandy-1-0 libhandy-1-dev
 ```
-  
+
 Install pyinstaller:
 
-```  
+```
 pip3 install pyinstaller
-```  
+```
 
 Reboot your computer for changes to take effect.
 
 After that, proceed by running the following commands:
 ```
-git clone https://github.com/maxasix/AltLinux
-```  
+git clone https://github.com/i-love-altlinux/AltLinux
+```
 
 ```
 cd AltLinux
-```  
+```
 
 ```
 ./build.sh
-```  
+```
 
 The DEB file is ready! You can install it now.
 
