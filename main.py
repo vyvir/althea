@@ -354,7 +354,7 @@ class SplashScreen(Handy.Window):
             self.lbl1.set_text("Downloading AltStore...")
             self.loadaltlinux.set_fraction(0.7)
             r = requests.get(
-                "https://cdn.altstore.io/file/altstore/altstore-beta.ipa",
+                "https://cdn.altstore.io/file/altstore/altstore.ipa",
                 allow_redirects=True,
             )
             open(f"{(altlinuxpath)}/AltStore.ipa", "wb").write(r.content)
