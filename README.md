@@ -1,8 +1,17 @@
+# ⚠️UNMAINTAINED/DEPRECATED⚠️ 
+Currently, we are undergoing the process of privately testing and preparing a V2 release of AltLinux, the current public version (V1) has been deprecated, and is no longer guaranteed to work. We apologize for the inconvenience.
+### FAQ
+> When will AltLinux V2 be released?
+
+Our team is currently facing some challenges with respect to the release date of V2. Recently, one of our core members became inactive, while we only have one active developer capable of working on the project right now. As a result, the timeline for its launch remains uncertain.
+> V1 isn't working, how can I get support?
+
+We no longer provide support for this version of AltLinux. If you need to sideload apps, we recommend using the official AltStore repo for the timebeing, using windows.
+> I would like updates/I have a question about AltLinux
+
+Please join [the Discord server](https://discord.gg/DZwRbyXq5Z) and we will be happy to answer any inquiries you may have.
 # AltLinux
 <img src="https://github.com/i-love-altlinux/AltLinux/blob/main/resources/4.png" alt="AltLinux Logo">
-
-**UNMAINTAINED:**
-Support for this version of AltLinux is no longer being provided in favour of AltLinuxV2. Please join our discord for updates regarding the revamp.
 
 AltLinux is a GUI for AltServer-Linux that allows to easily sideload apps onto an iPhone, an iPad, or an iPod Touch. It supports iOS 12.2 and later.
 
@@ -14,9 +23,10 @@ Features:
 - While the tray icon is present, AltServer runs in the background in tethered mode
 - Launching the tray icon on start-up
 
-The program is in its very early state, so if you're experiencing issues or want to help, you can join [the Discord server](https://discord.gg/vtvxYFAfAR).
+The program is in its very early state, so if you're experiencing issues or want to help, you can join [the Discord server](https://discord.gg/DZwRbyXq5Z).
 
 ## Install AltLinux
+⚠️ (Note: This version of AltLinux is deprecated, we cannot guarentee these instructions will work as intended) ⚠️
 
 AltLinux is available for Ubuntu 22.04 and Ubuntu 20.04.
 
