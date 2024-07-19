@@ -184,7 +184,7 @@ def on_abtdlg(self):
     )  # , 'Provision made by', 'Dadoum'])
     about.set_artists(["nebula"])
     about.set_comments("A GUI for AltServer-Linux written in Python.")
-    about.set_website("https://github.com/i-love-altlinux/AltLinux")
+    about.set_website("https://github.com/vyvir/AltLinux")
     about.set_website_label("Github")
     about.set_copyright("GUI by vyvir")
     about.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
@@ -276,7 +276,7 @@ class SplashScreen(Handy.Window):
         if not os.path.isfile(f"{(altlinuxpath)}/anisette-server"):
             self.lbl1.set_text("Downloading anisette-server...")
             r = requests.get(
-                "https://github.com/i-love-altlinux/AltLinux/releases/download/0.5.0/anisette-server-x86_64",
+                "https://github.com/vyvir/AltLinux/releases/download/0.5.0/anisette-server-x86_64",
                 allow_redirects=True,
             )
             open(f"{(altlinuxpath)}/anisette-server", "wb").write(r.content)
@@ -893,7 +893,7 @@ def notify():
     if (connectioncheck()) == True:
         LatestVersion = (
             urllib.request.urlopen(
-                "https://raw.githubusercontent.com/i-love-altlinux/AltLinux/main/resources/version"
+                "https://raw.githubusercontent.com/vyvir/AltLinux/main/resources/version"
             )
             .readline()
             .rstrip()
@@ -918,7 +918,7 @@ def notify():
 
 def showurl(_):
     Gtk.show_uri_on_window(
-        None, "https://github.com/i-love-altlinux/AltLinux/releases", Gdk.CURRENT_TIME
+        None, "https://github.com/vyvir/AltLinux/releases", Gdk.CURRENT_TIME
     )
     quitit()
 
@@ -990,7 +990,7 @@ def win2(_):
 
 def actionCallback(notification, action, user_data=None):
     Gtk.show_uri_on_window(
-        None, "https://github.com/i-love-altlinux/AltLinux/releases", Gdk.CURRENT_TIME
+        None, "https://github.com/vyvir/AltLinux/releases", Gdk.CURRENT_TIME
     )
     quitit()
 
