@@ -3,20 +3,28 @@ import os
 import errno
 from re import T
 from shutil import rmtree
-import gi
+import json
 import urllib.request
 from urllib.request import urlopen
+import urllib.parse
 import requests
 import subprocess
 import signal
 import threading
 from time import sleep
 
+# PyGObject
+
+import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Handy", "1")
-gi.require_version("AppIndicator3", "0.1")
 gi.require_version("Notify", "0.7")
-from gi.repository import Gtk, AppIndicator3 as appindicator
+try:
+    gi.require_version("AppIndicator3", "0.1")
+    from gi.repository import Gtk, AppIndicator3 as appindicator
+except ValueError: # Fix for Solus and other Ayatana users
+    gi.require_version('AyatanaAppIndicator3', '0.1')
+    from gi.repository import Gtk, AyatanaAppIndicator3 as appindicator
 from gi.repository import GLib
 from gi.repository import GObject, Handy
 from gi.repository import GdkPixbuf
@@ -27,21 +35,20 @@ GObject.type_ensure(Handy.ActionRow)
 
 installedcheck = False
 
-
 def resource_path(relative_path):
     global installedcheck
     CheckRun10 = subprocess.run(
-        f"find /usr/lib/altlinux/altlinux 2>/dev/null >dev/null", shell=True
+        f"find /usr/lib/altlinux/altlinux > /dev/null 2>&1", shell=True
     )
     if CheckRun10.returncode == 0:
         installedcheck = True
-        base_path = "/usr/lib/altlinux/altlinux"
+        base_path = "/usr/lib/altlinux"
     else:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
 
-# List of global variables
+# Global variables
 ermcheck = False  # Checks if the IPA path has been defined by user
 savedcheck = False
 InsAltStore = subprocess.Popen(
@@ -52,12 +59,10 @@ AppleID = "lol"
 Password = "lol"
 Warnmsg = "warn"
 Failmsg = "fail"
-file_name = resource_path("resources/1.png")
-icon_name = "view-conceal-symbolic.symbolic"
+icon_name = "changes-prevent-symbolic"
 command_six = Gtk.CheckMenuItem(label="Launch at Login")
-AppIcon = resource_path("resources/2.png")
 AltServer = "$HOME/.local/share/altlinux/AltServer"
-AnisetteServer = "$HOME/.local/share/altlinux/anisette_server"
+AnisetteServer = "$HOME/.local/share/altlinux/anisette-server"
 AltStore = "$HOME/.local/share/altlinux/AltStore.ipa"
 PATH = AltStore
 AutoStart = resource_path("resources/AutoStart.sh")
@@ -79,56 +84,24 @@ def connectioncheck():
 with open(resource_path("resources/version"), "r", encoding="utf-8") as f:
     LocalVersion = f.readline().strip()
 
-
 def main():
     GLib.set_prgname("AltLinux")  # Sets the global program name
     global altlinuxpath
-    global file_name
+    #global file_name
     if not os.path.exists(altlinuxpath):  # Creates $HOME/.local/share/altlinux
         os.mkdir(altlinuxpath)
-    global installedcheck
-    command1 = 'echo $XDG_CURRENT_DESKTOP | grep -q "GNOME"'  # Check if the current DE is GNOME
-    CheckRun8 = subprocess.run(command1, shell=True)
-    if CheckRun8.returncode == 0:
-        file_name = resource_path("resources/1.png")  # If GNOME, use the b&w tray icon
-    else:
-        command2 = 'echo $XDG_CURRENT_DESKTOP | grep -q "X-Cinnamon"'  # Check if the current DE is Cinnamon
-        CheckRunLol = subprocess.run(command2, shell=True)
-        if CheckRunLol.returncode == 0:
-            file_name = resource_path(
-                "resources/1.png"
-            )  # If Cinnamon, use the b&w tray icon
-        else:
-            file_name = resource_path(
-                "resources/2.png"
-            )  # If other DE, use a colored tray icon
-    if CheckRun8.returncode == 1 or (
-        CheckRun8.returncode == 0 and Gtk.StatusIcon.is_embedded
-    ):
+    if Gtk.StatusIcon.is_embedded:
         if connectioncheck():
             global indicator
             indicator = appindicator.Indicator.new(
-                "customtray",
-                os.path.abspath(file_name),
+                "altlinux-tray-icon",
+                resource_path("resources/1.png"),
                 appindicator.IndicatorCategory.APPLICATION_STATUS,
             )
             indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
             indicator.set_menu(menu())
             indicator.set_status(appindicator.IndicatorStatus.PASSIVE)
-            if (
-                not os.path.isfile(f"{(altlinuxpath)}/AltServer")
-                or not os.path.isfile(f"{(altlinuxpath)}/AltStore.ipa")
-                or not os.path.isfile(f"{(altlinuxpath)}/anisette_server")
-            ):
-                # If AltServer or AltStore aren't present, show splash screen
-                openwindow(SplashScreen)
-            else:
-                # If AltServer or AltStore are present, don't show splash screen
-                subprocess.run(
-                    f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' & {(altlinuxpath)}/AltServer &""",
-                    shell=True,
-                )
-                indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
+            openwindow(SplashScreen)
         else:
             openwindow(OopsInternet)  # Notify the user there is no Internet connection
     else:
@@ -199,10 +172,10 @@ def on_abtdlg(self):
     )
     about.set_logo(pixbuf)
     about.set_program_name("AltLinux")
-    about.set_version("0.4.2-2")
+    about.set_version("0.5.0")
     about.set_authors(
         [
-            "maxasix",
+            "vyvir",
             "AltServer-Linux",
             "made by NyaMisty",
             "Provision",
@@ -213,7 +186,7 @@ def on_abtdlg(self):
     about.set_comments("A GUI for AltServer-Linux written in Python.")
     about.set_website("https://github.com/i-love-altlinux/AltLinux")
     about.set_website_label("Github")
-    about.set_copyright("GUI by maxasix")
+    about.set_copyright("GUI by vyvir")
     about.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
     about.run()
     about.destroy()
@@ -296,20 +269,19 @@ class SplashScreen(Handy.Window):
             GLib.timeout_add(200, self.wait_for_t, self.t)
 
     def lol321actualfunction(self):
-        global installedcheck
-        self.lbl1.set_text("Checking if anisette_server is already running...")
+        self.lbl1.set_text("Checking if anisette-server is already running...")
         self.loadaltlinux.set_fraction(0.1)
         command = 'curl 127.0.0.1:6969 | grep -q "{"'
         CheckRun = subprocess.run(command, shell=True)
-        if not os.path.isfile(f"{(altlinuxpath)}/anisette_server"):
-            self.lbl1.set_text("Downloading anisette_server...")
+        if not os.path.isfile(f"{(altlinuxpath)}/anisette-server"):
+            self.lbl1.set_text("Downloading anisette-server...")
             r = requests.get(
-                "https://github.com/Dadoum/Provision/releases/download/2.1.0/anisette_server-x86_64",
+                "https://github.com/i-love-altlinux/AltLinux/releases/download/0.5.0/anisette-server-x86_64",
                 allow_redirects=True,
             )
-            open(f"{(altlinuxpath)}/anisette_server", "wb").write(r.content)
-            subprocess.run(f"chmod +x {(altlinuxpath)}/anisette_server", shell=True)
-            subprocess.run(f"chmod 755 {(altlinuxpath)}/anisette_server", shell=True)
+            open(f"{(altlinuxpath)}/anisette-server", "wb").write(r.content)
+            subprocess.run(f"chmod +x {(altlinuxpath)}/anisette-server", shell=True)
+            subprocess.run(f"chmod 755 {(altlinuxpath)}/anisette-server", shell=True)
             self.loadaltlinux.set_fraction(0.2)
             self.lbl1.set_text("Downloading Apple Music APK...")
             r = requests.get(
@@ -330,8 +302,8 @@ class SplashScreen(Handy.Window):
             )
             silentremove(f"{(altlinuxpath)}/am.apk")
             self.loadaltlinux.set_fraction(0.4)
-        self.lbl1.set_text("Starting anisette_server...")
-        subprocess.run(f"cd {(altlinuxpath)} && ./anisette_server &", shell=True)
+        self.lbl1.set_text("Starting anisette-server...")
+        subprocess.run(f"cd {(altlinuxpath)} && ./anisette-server &", shell=True)#-n 127.0.0.1 -p 6969 &", shell=True)
         self.loadaltlinux.set_fraction(0.5)
         finished = False
         while not finished:
@@ -350,22 +322,22 @@ class SplashScreen(Handy.Window):
             open(f"{(altlinuxpath)}/AltServer", "wb").write(r.content)
             subprocess.run(f"chmod +x {(altlinuxpath)}/AltServer", shell=True)
             subprocess.run(f"chmod 755 {(altlinuxpath)}/AltServer", shell=True)
+        self.loadaltlinux.set_fraction(0.8)
         if not os.path.isfile(f"{(altlinuxpath)}/AltStore.ipa"):
             self.lbl1.set_text("Downloading AltStore...")
-            self.loadaltlinux.set_fraction(0.7)
-            r = requests.get(
-                "https://cdn.altstore.io/file/altstore/altstore.ipa",
-                allow_redirects=True,
-            )
-            open(f"{(altlinuxpath)}/AltStore.ipa", "wb").write(r.content)
-            subprocess.run(f"chmod 755 {(altlinuxpath)}/AltStore.ipa", shell=True)
+            altstoredownload("Download")
+        else:
+            self.lbl1.set_text("Checking latest AltStore version...")
+            if not altstoredownload("Check"):
+                self.lbl1.set_text("Downloading new version of AltStore...")
+                altstoredownload("Download")
         self.lbl1.set_text("Starting AltServer...")
         self.loadaltlinux.set_fraction(1.0)
         subprocess.run(f"{(altlinuxpath)}/AltServer &", shell=True)
         return 0
 
 
-class login(Gtk.Window):
+class login(Gtk.Window):#
     def __init__(self):
         super().__init__(title="Login")
         self.present()
@@ -399,12 +371,15 @@ class login(Gtk.Window):
         grid.attach(self.entry, 1, 2, 1, 1)
         grid.attach_next_to(self.button, self.entry, Gtk.PositionType.RIGHT, 1, 1)
 
+        silentremove(f"{(altlinuxpath)}/log.txt")
+
     def on_click_me_clicked1(self):
         self.realthread1 = threading.Thread(target=self.onclickmethread)
         self.realthread1.start()
         GLib.idle_add(self.ermlol)
 
     def on_click_me_clicked(self, button):
+        silentremove(f"{(altlinuxpath)}/log.txt")
         if not os.path.isfile(f"{(altlinuxpath)}/saved.txt"):
             self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
             dialog = Gtk.MessageDialog(
@@ -436,21 +411,7 @@ class login(Gtk.Window):
         GLib.idle_add(self.ermlol)
 
     def onclickmethread(self):
-        silentremove(f"{(altlinuxpath)}/ideviceinfo.txt")
-        subprocess.run(f"ideviceinfo > {(altlinuxpath)}/ideviceinfo.txt", shell=True)
-        result = "result"
-        pathsy = f"{(altlinuxpath)}/ideviceinfo.txt"
-        with open(pathsy) as file:
-            # Iterate through lines
-            for line in file.readlines():
-                # Find the start of the word
-                index = line.find("ProductVersion: ")
-                # If the word is inside the line
-                if index != -1:
-                    result = line[:-1][16:]
-        silentremove(f"{(altlinuxpath)}/ideviceinfo.txt")
-        print(result)
-        if result >= "12.2":
+        if checkiosver() >= "15.0":
             global savedcheck
             global AppleID
             global Password
@@ -461,20 +422,20 @@ class login(Gtk.Window):
             global InsAltStore
             print(PATH)
             silentremove(f"{(altlinuxpath)}/log.txt")
-            f = open(f"{(altlinuxpath)}/log.txt", "w")
-            f.close()
+            #f = open(f"{(altlinuxpath)}/log.txt", "w")
+            #f.close()
             if os.path.isdir(f'{ os.environ["HOME"] }/.adi'):
                 rmtree(f'{ os.environ["HOME"] }/.adi')
-            InsAltStoreCMD = f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' & {(AltServer)} -u {UDID} -a {AppleID} -p {Password} {PATH} > {("$HOME/.local/share/altlinux/log.txt")}"""
+            InsAltStoreCMD = f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' ; {(AltServer)} -u {UDID} -a {AppleID} -p {Password} {PATH} > {("$HOME/.local/share/altlinux/log.txt")}"""
             InsAltStore = subprocess.Popen(
                 InsAltStoreCMD,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 shell=True,
             )
-        else:  # If the iOS version is lower than 12.2, AltServer-Linux won't run
+        else:  # If the iOS version is lower than 15.0, AltServer-Linux won't run
             global Failmsg
-            Failmsg = "iOS 12.2 or later is required."
+            Failmsg = "iOS 15.0 or later is required."
             dialog2 = DialogExample3(self)
             dialog2.run()
             dialog2.destroy()
@@ -593,16 +554,17 @@ class login(Gtk.Window):
 
     def on_icon_toggled(self, widget, icon, event):
         global icon_name
-        if icon_name == "view-conceal-symbolic.symbolic":
-            icon_name = "view-reveal-symbolic.symbolic"
+        if icon_name == "changes-prevent-symbolic":
+            icon_name = "changes-allow-symbolic"
             self.entry.set_visibility(True)
-        elif icon_name == "view-reveal-symbolic.symbolic":
-            icon_name = "view-conceal-symbolic.symbolic"
+        elif icon_name == "changes-allow-symbolic":
+            icon_name = "changes-prevent-symbolic"
             self.entry.set_visibility(False)
         self.entry.set_icon_from_icon_name(Gtk.EntryIconPosition.SECONDARY, icon_name)
 
-    def on_editable_toggled(self, widget):
-        print("lol")
+    #
+    #def on_editable_toggled(self, widget):
+    #    print("lol")
 
 
 class PairWindow(Handy.Window):
@@ -939,21 +901,10 @@ def notify():
         )
         if LatestVersion > LocalVersion:
             Notify.init("MyProgram")
-            command2 = 'echo $XDG_CURRENT_DESKTOP | grep -q "GNOME"'
-            command3 = 'echo $XDG_CURRENT_DESKTOP | grep -q "X-Cinnamon"'
-            CheckRun9 = subprocess.run(command2, shell=True)
-            if CheckRun9.returncode == 0:
-                file_name1 = resource_path("resources/1.png")
-            else:
-                CheckRun10 = subprocess.run(command3, shell=True)
-                if CheckRun10.returncode == 0:
-                    file_name1 = resource_path("resources/1.png")
-                else:
-                    file_name1 = resource_path("resources/2.png")
             n = Notify.Notification.new(
                 "An update is available!",
                 "Click 'Download Update' in the tray menu.",
-                os.path.abspath(file_name1),
+                resource_path("resources/3.png"),
             )
             n.set_timeout(Notify.EXPIRES_DEFAULT)
             # n.add_action("newupd", "Download", actionCallback)
@@ -967,7 +918,7 @@ def notify():
 
 def showurl(_):
     Gtk.show_uri_on_window(
-        None, "https://github.com/maxasix/AltLinux/releases", Gdk.CURRENT_TIME
+        None, "https://github.com/i-love-altlinux/AltLinux/releases", Gdk.CURRENT_TIME
     )
     quitit()
 
@@ -989,12 +940,13 @@ def restartaltserver(_):
     subprocess.run(f"killall {AnisetteServer}", shell=True)
     subprocess.run("idevicepair pair", shell=True)
     subprocess.run(
-        f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' & {(altlinuxpath)}/AltServer &""",
+        f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' ; {(altlinuxpath)}/AltServer &""",
         shell=True,
     )
 
 
 def winerm():
+    silentremove(f"{(altlinuxpath)}/log.txt")
     dialog = Gtk.MessageDialog(
         # transient_for=self,
         flags=0,
@@ -1061,6 +1013,51 @@ def silentremove(filename):
         if e.errno != errno.ENOENT:  # errno.ENOENT = no such file or directory
             raise  # re-raise exception if a different error occurred
 
+def altstoredownload(value):
+    # setting the base URL value
+    baseUrl = "https://cdn.altstore.io/file/altstore/apps.json"
+
+    # retrieving data from JSON Data
+    json_data = requests.get(baseUrl)
+    if json_data.status_code == 200:
+        data = json_data.json()
+        for app in data['apps']:
+            if app['name'] == "AltStore":
+                if value == "Check":
+                    size = app['versions'][0]['size']
+                    return size == os.path.getsize(f'{(altlinuxpath)}/AltStore.ipa')
+                    break
+                if value == "Download":
+                    latest = app['versions'][0]['downloadURL']
+                    r = requests.get(
+                        latest,
+                        allow_redirects=True,
+                    )
+                    latest_filename = latest.split('/')[-1]
+                    open(f"{(altlinuxpath)}/{(latest_filename)}", "wb").write(r.content)
+                    os.rename(f"{(altlinuxpath)}/{(latest_filename)}", f"{(altlinuxpath)}/AltStore.ipa")
+                    subprocess.run(f"chmod 755 {(altlinuxpath)}/AltStore.ipa", shell=True)
+                    break
+        return True
+    else:
+        return False
+
+def checkiosver():
+    silentremove(f"{(altlinuxpath)}/ideviceinfo.txt")
+    subprocess.run(f"ideviceinfo > {(altlinuxpath)}/ideviceinfo.txt", shell=True)
+    result = "result"
+    pathsy = f"{(altlinuxpath)}/ideviceinfo.txt"
+    with open(pathsy) as file:
+        # Iterate through lines
+        for line in file.readlines():
+            # Find the start of the word
+            index = line.find("ProductVersion: ")
+            # If the word is inside the line
+            if index != -1:
+                result = line[:-1][16:]
+    silentremove(f"{(altlinuxpath)}/ideviceinfo.txt")
+    print(result)
+    return(result)
 
 if __name__ == "__main__":
     main()
