@@ -276,7 +276,7 @@ class SplashScreen(Handy.Window):
         if not os.path.isfile(f"{(altlinuxpath)}/anisette-server"):
             self.lbl1.set_text("Downloading anisette-server...")
             r = requests.get(
-                "https://github.com/vyvir/AltLinux/releases/download/0.5.0/anisette-server-x86_64",
+                "https://github.com/vyvir/AltLinux/releases/download/v0.5.0/anisette-server-x86_64",
                 allow_redirects=True,
             )
             open(f"{(altlinuxpath)}/anisette-server", "wb").write(r.content)
