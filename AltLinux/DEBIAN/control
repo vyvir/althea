@@ -1,9 +1,9 @@
 Package: AltLinux
 Name: AltLinux
-Version: 0.4.2-2
-Architecture: all
-Author: maxasix <maxasix@disroot.org>
-Maintainer: maxasix <maxasix@disroot.org>
+Version: 0.5.0
+Architecture: amd64
+Author: vyvir <the.uniformed630@aleeas.com>
+Maintainer: vyvir <the.uniformed630@aleeas.com>
 Description: GUI for AltServerLinux
-Homepage: https://github.com/maxasix/AltLinux
-Depends: binutils, python3 (>= 3.8), gir1.2-appindicator3-0.1, usbmuxd, libimobiledevice6, libimobiledevice-utils, libavahi-compat-libdnssd-dev, unzip, usbutils, libhandy-1-0, libhandy-1-dev, curl
+Homepage: https://github.com/i-love-altlinux/AltLinux
+Depends: binutils, python3 (>= 3.8), gir1.2-appindicator3-0.1, usbmuxd, libimobiledevice6, libimobiledevice-utils, libavahi-compat-libdnssd-dev, unzip, usbutils, libhandy-1-0, libhandy-1-dev, curl, python3-requests, gir1.2-notify-0.7, psmisc
