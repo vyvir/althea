@@ -34,7 +34,7 @@ sudo dnf install binutils python3-pip git libappindicator-gtk3 usbmuxd libimobil
 ```
 Arch Linux:
 ```
-sudo pacman -S binutils wget curl git python-pip libappindicator-gtk3 usbmuxd libimobiledevice avahi zlib unzip usbutils psmisc libhandy
+sudo pacman -S binutils wget curl git python-pip python-gobject libappindicator-gtk3 usbmuxd libimobiledevice avahi zlib unzip usbutils psmisc libhandy
 ```
 
 OpenSUSE:
