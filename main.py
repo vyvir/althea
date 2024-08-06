@@ -277,18 +277,19 @@ class SplashScreen(Handy.Window):
         CheckRun = subprocess.run(command, shell=True)
         if not os.path.isfile(f"{(altlinuxpath)}/anisette-server"):
             self.lbl1.set_text("Downloading anisette-server...")
-            if computer_cpu_platform.find('AMD64') != -1:
+            if computer_cpu_platform == 'AMD64':
                 r = requests.get(
                     "https://github.com/vyvir/AltLinux/releases/download/v0.5.0/anisette-server-x86_64",
                     allow_redirects=True,
                 )
-            elif computer_cpu_platform.find('v8') != -1 or computer_cpu_platform.find('ARM64') != -1 or computer_cpu_platform.find('v8') != -1:
+            elif computer_cpu_platform == "aarch64":
                 #Thanks, Dadoum for the anisette server!
                 #or vyvir, do not forget to upload ur version of server.
                 r = requests.get(
                     "https://github.com/Dadoum/Provision/releases/download/2.2.0/anisette-server-aarch64",
                     allow_redirects=True
                 )
+                #sorry i dont know what will arm32 output
             elif computer_cpu_platform.find('v7') != -1 or computer_cpu_platform.find('ARM') != -1 or computer_cpu_platform.find('hf') != -1:
                 r = requests.get(
                     "https://github.com/Dadoum/Provision/releases/download/2.2.0/anisette-server-armv7",
@@ -344,12 +345,12 @@ class SplashScreen(Handy.Window):
                 allow_redirects=True,
             )
             """
-            if computer_cpu_platform.find('AMD64') != -1:
+            if computer_cpu_platform == 'AMD64':
                 r = requests.get(
                     "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-x86_64",
                     allow_redirects=True,
                 )
-            elif computer_cpu_platform.find('v8') != -1 or computer_cpu_platform.find('v9') != -1 or computer_cpu_platform.find('ARM64') != -1:
+            elif computer_cpu_platform == 'aarch64':
                 r = requests.get(
                     "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-aarch64",
                     allow_redirects=True
