@@ -12,6 +12,7 @@ import subprocess
 import signal
 import threading
 from time import sleep
+import platform
 
 # PyGObject
 
@@ -34,6 +35,7 @@ from gi.repository import Gdk
 GObject.type_ensure(Handy.ActionRow)
 
 installedcheck = False
+computer_cpu_platform = platform.machine()
 
 def resource_path(relative_path):
     global installedcheck
@@ -275,10 +277,31 @@ class SplashScreen(Handy.Window):
         CheckRun = subprocess.run(command, shell=True)
         if not os.path.isfile(f"{(altlinuxpath)}/anisette-server"):
             self.lbl1.set_text("Downloading anisette-server...")
-            r = requests.get(
-                "https://github.com/vyvir/AltLinux/releases/download/v0.5.0/anisette-server-x86_64",
-                allow_redirects=True,
-            )
+            if computer_cpu_platform == 'AMD64':
+                r = requests.get(
+                    "https://github.com/vyvir/AltLinux/releases/download/v0.5.0/anisette-server-x86_64",
+                    allow_redirects=True,
+                )
+            elif computer_cpu_platform == "aarch64":
+                #Thanks, Dadoum for the anisette server!
+                #or vyvir, do not forget to upload ur version of server.
+                r = requests.get(
+                    "https://github.com/Dadoum/Provision/releases/download/2.2.0/anisette-server-aarch64",
+                    allow_redirects=True
+                )
+                #sorry i dont know what will arm32 output
+            elif computer_cpu_platform.find('v7') != -1 or computer_cpu_platform.find('ARM') != -1 or computer_cpu_platform.find('hf') != -1:
+                r = requests.get(
+                    "https://github.com/Dadoum/Provision/releases/download/2.2.0/anisette-server-armv7",
+                    allow_redirects=True
+                )
+            else:
+                print('WARNING: YOUR CPU IS NOT SUPPORTED, THE PROGRAM MAY NOT WORK!')
+                #ooops, just download x86-64 ver
+                r = requests.get(
+                    "https://github.com/vyvir/AltLinux/releases/download/v0.5.0/anisette-server-x86_64",
+                    allow_redirects=True,
+                )
             open(f"{(altlinuxpath)}/anisette-server", "wb").write(r.content)
             subprocess.run(f"chmod +x {(altlinuxpath)}/anisette-server", shell=True)
             subprocess.run(f"chmod 755 {(altlinuxpath)}/anisette-server", shell=True)
@@ -303,7 +326,7 @@ class SplashScreen(Handy.Window):
             silentremove(f"{(altlinuxpath)}/am.apk")
             self.loadaltlinux.set_fraction(0.4)
         self.lbl1.set_text("Starting anisette-server...")
-        subprocess.run(f"cd {(altlinuxpath)} && ./anisette-server &", shell=True)#-n 127.0.0.1 -p 6969 &", shell=True)
+        subprocess.run(f"cd {(altlinuxpath)} && ./anisette-server &", shell=True)#-n 127.0.0.1 -p 6969 &", shell=True
         self.loadaltlinux.set_fraction(0.5)
         finished = False
         while not finished:
@@ -315,10 +338,35 @@ class SplashScreen(Handy.Window):
         if not os.path.isfile(f"{(altlinuxpath)}/AltServer"):
             self.lbl1.set_text("Downloading AltServer...")
             self.loadaltlinux.set_fraction(0.6)
+            
+            """
             r = requests.get(
                 "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-x86_64",
                 allow_redirects=True,
             )
+            """
+            if computer_cpu_platform == 'AMD64':
+                r = requests.get(
+                    "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-x86_64",
+                    allow_redirects=True,
+                )
+            elif computer_cpu_platform == 'aarch64':
+                r = requests.get(
+                    "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-aarch64",
+                    allow_redirects=True
+                )
+            elif computer_cpu_platform.find('v7') != -1 or computer_cpu_platform.find('ARM') != -1 or computer_cpu_platform.find('hf') != -1:
+                r = requests.get(
+                    "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-armv7",
+                    allow_redirects=True
+                )
+            else:
+                print('WARNING: YOUR CPU IS NOT SUPPORTED, AltServer MAY NOT WORK!')
+                #ooops, just download x86-64 ver
+                r = requests.get(
+                    "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-x86_64",
+                    allow_redirects=True,
+                )
             open(f"{(altlinuxpath)}/AltServer", "wb").write(r.content)
             subprocess.run(f"chmod +x {(altlinuxpath)}/AltServer", shell=True)
             subprocess.run(f"chmod 755 {(altlinuxpath)}/AltServer", shell=True)
