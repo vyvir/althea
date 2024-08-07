@@ -286,13 +286,13 @@ class SplashScreen(Handy.Window):
                 #Thanks, Dadoum for the anisette server!
                 #or vyvir, do not forget to upload ur version of server.
                 r = requests.get(
-                    "https://github.com/Dadoum/Provision/releases/download/2.2.0/anisette-server-aarch64",
+                    "https://github.com/vyvir/AltLinux/releases/download/v0.5.0/anisette-server-aarch64",
                     allow_redirects=True
                 )
                 #sorry i dont know what will arm32 output
             elif computer_cpu_platform.find('v7') != -1 or computer_cpu_platform.find('ARM') != -1 or computer_cpu_platform.find('hf') != -1:
                 r = requests.get(
-                    "https://github.com/Dadoum/Provision/releases/download/2.2.0/anisette-server-armv7",
+                    "https://github.com/vyvir/AltLinux/releases/download/v0.5.0/anisette-server-armv7",
                     allow_redirects=True
                 )
             else:
