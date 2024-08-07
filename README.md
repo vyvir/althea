@@ -1,7 +1,7 @@
 # AltLinux
 <img src="https://github.com/i-love-altlinux/AltLinux/blob/main/resources/4.png" alt="AltLinux Logo">
 
-AltLinux is a GUI for AltServer-Linux that allows to easily sideload apps onto an iPhone, an iPad, or an iPod Touch. It supports iOS 15 and later.
+AltLinux is a GUI for AltServer-Linux that allows to easily sideload apps onto an iPhone, an iPad, or an iPod Touch. It supports iOS 15 and later. AltLinux supports x86_64, aarch64, and armv7.
 
 This app is in a very early state, so if you're experiencing issues or want to help, you can create a [pull request](https://github.com/i-love-altlinux/AltLinux/pulls), [report an issue](https://github.com/i-love-altlinux/AltLinux/issues), or join [the Discord server](https://discord.gg/DZwRbyXq5Z).
 
