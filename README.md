@@ -7,13 +7,7 @@ This app is in a very early state, so if you're experiencing issues or want to h
 
 ## Instructions
 
-### Ubuntu
-
-Install the latest version from [releases](https://github.com/i-love-altlinux/AltLinux/releases/latest).
-
-### Other Linux distributions
-
-#### Dependencies
+### Dependencies
 
 Ubuntu:
 ```
@@ -42,7 +36,7 @@ OpenSUSE:
 sudo zypper in binutils wget curl git python311-gobject-Gdk libhandy-devel libappindicator3-1 typelib-1_0-AppIndicator3-0_1 imobiledevice-tools libdns_sd libnotify-devel psmisc
 ```
 
-#### Running AltLinux
+### Running AltLinux
 
 Once the dependencies are installed, run the following commands:
 ```
@@ -63,8 +57,9 @@ python3.11 main.py
 ```
 
 ## Compile the DEB package
-
-Feel free to create a [pull request](https://github.com/i-love-altlinux/AltLinux/pulls) or [report an issue](https://github.com/i-love-altlinux/AltLinux/issues).
+**
+This installation method is no longer supported.**
+If you still wish to cotribute to it, feel free to create a [pull request](https://github.com/i-love-altlinux/AltLinux/pulls).
 
 Add the `universe` repository:
 
