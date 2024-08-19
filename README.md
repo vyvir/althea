@@ -60,9 +60,7 @@ That's it! Have fun with AltLinux!
 
 ## Compile the DEB package
 
-This installation method is no longer supported.
-
-If you still wish to cotribute to it, feel free to create a [pull request](https://github.com/i-love-altlinux/AltLinux/pulls).
+This installation method is no longer supported and will be removed soon.
 
 Add the `universe` repository:
 
