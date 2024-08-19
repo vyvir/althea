@@ -58,61 +58,6 @@ python3.11 main.py
 
 That's it! Have fun with AltLinux!
 
-## Compile the DEB package
-
-This installation method is no longer supported and will be removed soon.
-
-Add the `universe` repository:
-
-```
-sudo apt install software-properties-common
-```
-
-```
-sudo add-apt-repository universe -y
-```
-
-Install the dependencies:
-```
-sudo apt-get install binutils python3-pip git gir1.2-appindicator3-0.1 usbmuxd libimobiledevice6 libimobiledevice-utils wget curl libavahi-compat-libdnssd-dev zlib1g-dev unzip usbutils libhandy-1-dev gir1.2-notify-0.7 python3-requests psmisc pipx
-```
-
-If you're running Ubuntu 20.04 or any distro based on it (such as Mint 20), run the following commands:
-```
-sudo add-apt-repository ppa:apandada1/libhandy-1
-sudo apt update
-sudo apt install libhandy-1-0 libhandy-1-dev
-```
-
-Install pyinstaller:
-
-Ubuntu 22.04:
-```
-pip3 install pyinstaller
-```
-
-Ubuntu 24.04:
-```
-pip3 install pyinstaller --break-system-packages
-```
-
-Reboot your computer for changes to take effect.
-
-After that, proceed by running the following commands:
-```
-git clone https://github.com/i-love-altlinux/AltLinux
-```
-
-```
-cd AltLinux
-```
-
-```
-./build.sh
-```
-
-The DEB file is ready! You can install it now.
-
 ## Credits
 
 AltLinux made by [vyvir](https://github.com/vyvir)
