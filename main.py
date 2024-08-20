@@ -277,7 +277,7 @@ class SplashScreen(Handy.Window):
         CheckRun = subprocess.run(command, shell=True)
         if not os.path.isfile(f"{(altlinuxpath)}/anisette-server"):
             self.lbl1.set_text("Downloading anisette-server...")
-            if computer_cpu_platform == 'AMD64':
+            if computer_cpu_platform == 'x86_64':
                 r = requests.get(
                     "https://github.com/vyvir/AltLinux/releases/download/v0.5.0/anisette-server-x86_64",
                     allow_redirects=True,
