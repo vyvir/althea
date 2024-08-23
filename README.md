@@ -1,9 +1,9 @@
-# AltLinux
-<img src="https://github.com/i-love-altlinux/AltLinux/blob/main/resources/4.png" alt="AltLinux Logo">
+# althea
+<img src="https://github.com/vyvir/althea/blob/main/resources/4.png" alt="althea Logo">
 
-AltLinux is a GUI for AltServer-Linux that allows to easily sideload apps onto an iPhone, an iPad, or an iPod Touch. It supports iOS 15 and later. AltLinux supports x86_64, aarch64, and armv7.
+althea is a GUI for AltServer-Linux that allows to easily sideload apps onto an iPhone, an iPad, or an iPod Touch. It supports iOS 15 and later. althea supports x86_64, aarch64, and armv7.
 
-This app is in a very early state, so if you're experiencing issues or want to help, you can create a [pull request](https://github.com/i-love-altlinux/AltLinux/pulls), [report an issue](https://github.com/i-love-altlinux/AltLinux/issues), or join [the Discord server](https://discord.gg/DZwRbyXq5Z).
+This app is in a very early state, so if you're experiencing issues or want to help, you can create a [pull request](https://github.com/vyvir/althea/pulls), [report an issue](https://github.com/vyvir/althea/issues), or join [the Discord server](https://discord.gg/DZwRbyXq5Z).
 
 ## Instructions
 
@@ -36,15 +36,15 @@ OpenSUSE:
 sudo zypper in binutils wget curl git python311-gobject-Gdk libhandy-devel libappindicator3-1 typelib-1_0-AppIndicator3-0_1 imobiledevice-tools libdns_sd libnotify-devel psmisc
 ```
 
-### Running AltLinux
+### Running althea
 
 Once the dependencies are installed, run the following commands:
 ```
-git clone https://github.com/i-love-altlinux/AltLinux
+git clone https://github.com/vyvir/althea
 ```
 
 ```
-cd AltLinux
+cd althea
 ```
 
 ```
@@ -56,11 +56,11 @@ Note: if you're running OpenSUSE Leap, run the following command instead:
 python3.11 main.py
 ```
 
-That's it! Have fun with AltLinux!
+That's it! Have fun with althea!
 
 ## Credits
 
-AltLinux made by [vyvir](https://github.com/vyvir)
+althea made by [vyvir](https://github.com/vyvir)
 
 AltServer-Linux made by [NyaMisty](https://github.com/NyaMisty)
 
