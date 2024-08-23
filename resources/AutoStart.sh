@@ -2,16 +2,16 @@
 
 cd "$(dirname "$0")" || exit
 
-cat <<EOF | tee /home/$(whoami)/.local/share/altlinux/AltLinux.desktop >/dev/null
+cat <<EOF | tee /home/$(whoami)/.local/share/althea/althea.desktop >/dev/null
 [Desktop Entry]
-Name=AltLinux
+Name=althea
 GenericName=AltServer for Linux
-Path=/usr/lib/altlinux
-Exec=/usr/lib/altlinux/altlinux
+Path=/usr/lib/althea
+Exec=/usr/lib/althea/althea
 Terminal=false
 Type=Application
 X-GNOME-Autostart-enabled=true
 EOF
 
-cp /home/$(whoami)/.local/share/altlinux/AltLinux.desktop /home/$(whoami)/.config/autostart/
-rm /home/$(whoami)/.local/share/altlinux/AltLinux.desktop
+cp /home/$(whoami)/.local/share/althea/althea.desktop /home/$(whoami)/.config/autostart/
+rm /home/$(whoami)/.local/share/althea/althea.desktop

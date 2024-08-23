@@ -2,17 +2,17 @@
 
 cd "$(dirname "$0")" || exit
 
-if [ -d "./AltLinux/usr/lib" ]; then
+if [ -d "./althea/usr/lib" ]; then
     rm -rf "./AltServer/usr/lib"
 fi
 if [ -d "./dist" ]; then
     rm -rf "./dist"
 fi
 
-pyinstaller altlinux.spec --clean
-cp -R ./resources ./dist/altlinux
-mkdir -p "./AltLinux/usr/lib"
+pyinstaller althea.spec --clean
+cp -R ./resources ./dist/althea
+mkdir -p "./althea/usr/lib"
 
-cp -R ./dist/altlinux ./AltLinux/usr/lib
-chmod -R 0775 AltLinux
-dpkg-deb --build --root-owner-group AltLinux AltLinux.deb
+cp -R ./dist/althea ./althea/usr/lib
+chmod -R 0775 althea
+dpkg-deb --build --root-owner-group althea althea.deb

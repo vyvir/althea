@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=althea
+Path=/usr/lib/althea
+Exec=/usr/lib/althea/althea
+Icon=/usr/share/icons/althea.png
+Terminal=false
+Type=Application
+Categories=Application
+Name[en_US]=althea

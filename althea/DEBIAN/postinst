@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -ex
+
+althea_PATH="/usr/lib/althea"
+USER=$SUDO_USER
+
+if [ -d "$althea_PATH" ]; then
+    sudo chown -R "$USER:$USER" "$althea_PATH"
+fi
+exit 0
