@@ -51,14 +51,14 @@ def resource_path(relative_path):
 
 
 # Global variables
-ermcheck = False  # Checks if the IPA path has been defined by user
+ipa_path_exists = False  # Checks if the IPA path has been defined by user
 savedcheck = False
 InsAltStore = subprocess.Popen(
     "test", stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
 )
 lolcheck = "lol"  # Redirects user either to login or to file chooser; If the "Pair" option was selected, it closes the dialog
-AppleID = "lol"
-Password = "lol"
+apple_id = "lol"
+password = "lol"
 Warnmsg = "warn"
 Failmsg = "fail"
 icon_name = "changes-prevent-symbolic"
@@ -218,12 +218,12 @@ def altserverfile(_):
         openwindow(PairWindow)
     else:
         win2 = FileChooserWindow()
-        global ermcheck
-        if ermcheck == True:
+        global ipa_path_exists
+        if ipa_path_exists == True:
             global PATH
             PATH = win2.PATHFILE
             win1()
-            ermcheck = False
+            ipa_path_exists = False
 
 
 class SplashScreen(Handy.Window):
@@ -257,7 +257,7 @@ class SplashScreen(Handy.Window):
         self.mainBox.pack_start(self.lbl1, False, False, 6)
         self.loadalthea = Gtk.ProgressBar()
         self.mainBox.pack_start(self.loadalthea, True, True, 0)
-        self.t = threading.Thread(target=self.lol321actualfunction)
+        self.t = threading.Thread(target=self.startup_process)
         self.t.start()
         self.wait_for_t(self.t)
 
@@ -270,7 +270,7 @@ class SplashScreen(Handy.Window):
         else:
             GLib.timeout_add(200, self.wait_for_t, self.t)
 
-    def lol321actualfunction(self):
+    def startup_process(self):
         self.lbl1.set_text("Checking if anisette-server is already running...")
         self.loadalthea.set_fraction(0.1)
         command = 'curl 127.0.0.1:6969 | grep -q "{"'
@@ -323,7 +323,7 @@ class SplashScreen(Handy.Window):
                 f'unzip -j "{(altheapath)}/am.apk" "lib/x86_64/libCoreADI.so" -d "{(altheapath)}/lib/x86_64"',
                 shell=True,
             )
-            silentremove(f"{(altheapath)}/am.apk")
+            silent_remove(f"{(altheapath)}/am.apk")
             self.loadalthea.set_fraction(0.4)
         self.lbl1.set_text("Starting anisette-server...")
         subprocess.run(f"cd {(altheapath)} && ./anisette-server &", shell=True)#-n 127.0.0.1 -p 6969 &", shell=True
@@ -373,12 +373,12 @@ class SplashScreen(Handy.Window):
         self.loadalthea.set_fraction(0.8)
         if not os.path.isfile(f"{(altheapath)}/AltStore.ipa"):
             self.lbl1.set_text("Downloading AltStore...")
-            altstoredownload("Download")
+            altstore_download("Download")
         else:
             self.lbl1.set_text("Checking latest AltStore version...")
-            if not altstoredownload("Check"):
+            if not altstore_download("Check"):
                 self.lbl1.set_text("Downloading new version of AltStore...")
-                altstoredownload("Download")
+                altstore_download("Download")
         self.lbl1.set_text("Starting AltServer...")
         self.loadalthea.set_fraction(1.0)
         subprocess.run(f"{(altheapath)}/AltServer &", shell=True)
@@ -419,15 +419,15 @@ class login(Gtk.Window):#
         grid.attach(self.entry, 1, 2, 1, 1)
         grid.attach_next_to(self.button, self.entry, Gtk.PositionType.RIGHT, 1, 1)
 
-        silentremove(f"{(altheapath)}/log.txt")
+        silent_remove(f"{(altheapath)}/log.txt")
 
     def on_click_me_clicked1(self):
         self.realthread1 = threading.Thread(target=self.onclickmethread)
         self.realthread1.start()
-        GLib.idle_add(self.ermlol)
+        GLib.idle_add(self.install_process)
 
     def on_click_me_clicked(self, button):
-        silentremove(f"{(altheapath)}/log.txt")
+        silent_remove(f"{(altheapath)}/log.txt")
         if not os.path.isfile(f"{(altheapath)}/saved.txt"):
             self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
             dialog = Gtk.MessageDialog(
@@ -440,12 +440,12 @@ class login(Gtk.Window):#
             dialog.format_secondary_text("This will allow you to login automatically.")
             response = dialog.run()
             if response == Gtk.ResponseType.YES:
-                AppleID = self.entry1.get_text().lower()
-                Password = self.entry.get_text()
+                apple_id = self.entry1.get_text().lower()
+                password = self.entry.get_text()
                 f = open(f"{(altheapath)}/saved.txt", "x")
-                f.write(AppleID)
+                f.write(apple_id)
                 f.write(":")
-                f.write(Password)
+                f.write(password)
                 f.close()
             dialog.destroy()
         self.entry.set_progress_pulse_step(0.2)
@@ -456,25 +456,25 @@ class login(Gtk.Window):#
         self.button.set_sensitive(False)
         self.realthread1 = threading.Thread(target=self.onclickmethread)
         self.realthread1.start()
-        GLib.idle_add(self.ermlol)
+        GLib.idle_add(self.install_process)
 
     def onclickmethread(self):
-        if checkiosver() >= "15.0":
+        if ios_version() >= "15.0":
             global savedcheck
-            global AppleID
-            global Password
+            global apple_id
+            global password
             if not savedcheck:
-                AppleID = self.entry1.get_text().lower()
-                Password = self.entry.get_text()
+                apple_id = self.entry1.get_text().lower()
+                password = self.entry.get_text()
             UDID = subprocess.check_output("idevice_id -l", shell=True).decode().strip()
             global InsAltStore
             print(PATH)
-            silentremove(f"{(altheapath)}/log.txt")
+            silent_remove(f"{(altheapath)}/log.txt")
             #f = open(f"{(altheapath)}/log.txt", "w")
             #f.close()
             if os.path.isdir(f'{ os.environ["HOME"] }/.adi'):
                 rmtree(f'{ os.environ["HOME"] }/.adi')
-            InsAltStoreCMD = f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' ; {(AltServer)} -u {UDID} -a {AppleID} -p {Password} {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
+            InsAltStoreCMD = f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' ; {(AltServer)} -u {UDID} -a {apple_id} -p {password} {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
             InsAltStore = subprocess.Popen(
                 InsAltStoreCMD,
                 stdin=subprocess.PIPE,
@@ -489,7 +489,7 @@ class login(Gtk.Window):#
             dialog2.destroy()
             self.destroy()
 
-    def ermlol(self):
+    def install_process(self):
         Installing = True
         WarnTime = 0
         TwoFactorTime = 0
@@ -686,11 +686,11 @@ class PairWindow(Handy.Window):
                 win1()
             elif lolcheck == "ipa":
                 win2 = FileChooserWindow()
-            global ermcheck
-            if ermcheck == True:
+            global ipa_path_exists
+            if ipa_path_exists == True:
                 PATH = win2.PATHFILE
                 win1()
-                ermcheck = False
+                ipa_path_exists = False
             lolcheck = "lol"
         except subprocess.CalledProcessError as e:
             errormsg = e.output.decode("utf-8")
@@ -730,8 +730,8 @@ class FileChooserWindow(Gtk.Window):
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             self.PATHFILE = dialog.get_filename()
-            global ermcheck
-            ermcheck = True
+            global ipa_path_exists
+            ipa_path_exists = True
         elif response == Gtk.ResponseType.CANCEL:
             self.destroy()
 
@@ -994,7 +994,7 @@ def restartaltserver(_):
 
 
 def winerm():
-    silentremove(f"{(altheapath)}/log.txt")
+    silent_remove(f"{(altheapath)}/log.txt")
     dialog = Gtk.MessageDialog(
         # transient_for=self,
         flags=0,
@@ -1005,18 +1005,18 @@ def winerm():
     dialog.format_secondary_text("Your login and password have been saved earlier.")
     response = dialog.run()
     if response == Gtk.ResponseType.YES:
-        global AppleID
-        global Password
+        global apple_id
+        global password
         f = open(f"{(altheapath)}/saved.txt", "r")
         for line in f:
-            AppleID, Password = line.split(":")
+            apple_id, password = line.split(" ")
         f.close()
-        print(AppleID, Password)
+        print(apple_id, password)
         global savedcheck
         savedcheck = True
         login().on_click_me_clicked1()
     else:
-        silentremove(f"{(altheapath)}/saved.txt")
+        silent_remove(f"{(altheapath)}/saved.txt")
         win3 = login()
         win3.show_all()
     dialog.destroy()
@@ -1050,18 +1050,18 @@ def launchatlogin1(_):
         os.popen(AutoStart).read()
         return True
     else:
-        silentremove("$HOME/.config/autostart/althea.desktop")
+        silent_remove("$HOME/.config/autostart/althea.desktop")
         return False
 
 
-def silentremove(filename):
+def silent_remove(filename):
     try:
         os.remove(filename)
     except OSError as e:
         if e.errno != errno.ENOENT:  # errno.ENOENT = no such file or directory
             raise  # re-raise exception if a different error occurred
 
-def altstoredownload(value):
+def altstore_download(value):
     # setting the base URL value
     baseUrl = "https://cdn.altstore.io/file/altstore/apps.json"
 
@@ -1090,8 +1090,8 @@ def altstoredownload(value):
     else:
         return False
 
-def checkiosver():
-    silentremove(f"{(altheapath)}/ideviceinfo.txt")
+def ios_version():
+    silent_remove(f"{(altheapath)}/ideviceinfo.txt")
     subprocess.run(f"ideviceinfo > {(altheapath)}/ideviceinfo.txt", shell=True)
     result = "result"
     pathsy = f"{(altheapath)}/ideviceinfo.txt"
@@ -1103,7 +1103,7 @@ def checkiosver():
             # If the word is inside the line
             if index != -1:
                 result = line[:-1][16:]
-    silentremove(f"{(altheapath)}/ideviceinfo.txt")
+    silent_remove(f"{(altheapath)}/ideviceinfo.txt")
     print(result)
     return(result)
 
