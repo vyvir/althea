@@ -73,44 +73,17 @@ altheapath = os.path.join(
     "althea",
 )
 
+# Check version
+with open(resource_path("resources/version"), "r", encoding="utf-8") as f:
+    LocalVersion = f.readline().strip()
 
+# Functions
 def connectioncheck():
     try:
         urlopen("http://www.example.com", timeout=5)
         return True
     except:
         return False
-
-
-# Check version
-with open(resource_path("resources/version"), "r", encoding="utf-8") as f:
-    LocalVersion = f.readline().strip()
-
-def main():
-    GLib.set_prgname("althea")  # Sets the global program name
-    global altheapath
-    #global file_name
-    if not os.path.exists(altheapath):  # Creates $HOME/.local/share/althea
-        os.mkdir(altheapath)
-    if Gtk.StatusIcon.is_embedded:
-        if connectioncheck():
-            global indicator
-            indicator = appindicator.Indicator.new(
-                "althea-tray-icon",
-                resource_path("resources/1.png"),
-                appindicator.IndicatorCategory.APPLICATION_STATUS,
-            )
-            indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
-            indicator.set_menu(menu())
-            indicator.set_status(appindicator.IndicatorStatus.PASSIVE)
-            openwindow(SplashScreen)
-        else:
-            openwindow(OopsInternet)  # Notify the user there is no Internet connection
-    else:
-        openwindow(Oops)  # Notify the user the tray icons aren't installed
-    Handy.init()
-    Gtk.main()
-
 
 def menu():
     menu = Gtk.Menu()
@@ -164,7 +137,6 @@ def menu():
     menu.show_all()
     return menu
 
-
 def on_abtdlg(self):
     about = Gtk.AboutDialog()
     width = 100
@@ -193,14 +165,12 @@ def on_abtdlg(self):
     about.run()
     about.destroy()
 
-
 def paircheck():  # Check if the device is paired already
     pairchecking = subprocess.run('idevicepair pair | grep -q "SUCCESS"', shell=True)
     if pairchecking.returncode == 0:
         return False
     else:
         return True
-
 
 def altstoreinstall(_):
     if paircheck():
@@ -209,7 +179,6 @@ def altstoreinstall(_):
         openwindow(PairWindow)
     else:
         win1()
-
 
 def altserverfile(_):
     if paircheck():
@@ -225,7 +194,167 @@ def altserverfile(_):
             win1()
             ipa_path_exists = False
 
+def notify():
+    if (connectioncheck()) == True:
+        LatestVersion = (
+            urllib.request.urlopen(
+                "https://raw.githubusercontent.com/vyvir/althea/main/resources/version"
+            )
+            .readline()
+            .rstrip()
+            .decode()
+        )
+        if LatestVersion > LocalVersion:
+            Notify.init("MyProgram")
+            n = Notify.Notification.new(
+                "An update is available!",
+                "Click 'Download Update' in the tray menu.",
+                resource_path("resources/3.png"),
+            )
+            n.set_timeout(Notify.EXPIRES_DEFAULT)
+            # n.add_action("newupd", "Download", actionCallback)
+            n.show()
+            return True
+        else:
+            return False
+    else:
+        return False
 
+def showurl(_):
+    Gtk.show_uri_on_window(
+        None, "https://github.com/vyvir/althea/releases", Gdk.CURRENT_TIME
+    )
+    quitit()
+
+def openwindow(window):
+    w = window()
+    w.show_all()
+
+def quitit():
+    subprocess.run(f"killall {AltServer}", shell=True)
+    subprocess.run(f"killall {AnisetteServer}", shell=True)
+    Gtk.main_quit()
+    os.kill(os.getpid(), signal.SIGKILL)
+
+def restartaltserver(_):
+    subprocess.run(f"killall {AltServer}", shell=True)
+    subprocess.run(f"killall {AnisetteServer}", shell=True)
+    subprocess.run("idevicepair pair", shell=True)
+    subprocess.run(
+        f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' ; {(altheapath)}/AltServer &""",
+        shell=True,
+    )
+
+def winerm():
+    silent_remove(f"{(altheapath)}/log.txt")
+    dialog = Gtk.MessageDialog(
+        # transient_for=self,
+        flags=0,
+        message_type=Gtk.MessageType.QUESTION,
+        buttons=Gtk.ButtonsType.YES_NO,
+        text="Do you want to login automatically?",
+    )
+    dialog.format_secondary_text("Your login and password have been saved earlier.")
+    response = dialog.run()
+    if response == Gtk.ResponseType.YES:
+        global apple_id
+        global password
+        f = open(f"{(altheapath)}/saved.txt", "r")
+        for line in f:
+            apple_id, password = line.split(" ")
+        f.close()
+        print(apple_id, password)
+        global savedcheck
+        savedcheck = True
+        login().on_click_me_clicked1()
+    else:
+        silent_remove(f"{(altheapath)}/saved.txt")
+        win3 = login()
+        win3.show_all()
+    dialog.destroy()
+
+def win1():
+    if os.path.isfile(f"{(altheapath)}/saved.txt"):
+        winerm()
+    else:
+        openwindow(login)
+
+def win2(_):
+    if os.path.isfile(f"{(altheapath)}/saved.txt"):
+        winerm()
+    else:
+        openwindow(login)
+
+def actionCallback(notification, action, user_data=None):
+    Gtk.show_uri_on_window(
+        None, "https://github.com/vyvir/althea/releases", Gdk.CURRENT_TIME
+    )
+    quitit()
+
+def launchatlogin1(_):
+    global command_six
+    if command_six.get_active():
+        global AutoStart
+        os.popen(AutoStart).read()
+        return True
+    else:
+        silent_remove("$HOME/.config/autostart/althea.desktop")
+        return False
+
+def silent_remove(filename):
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT:  # errno.ENOENT = no such file or directory
+            raise  # re-raise exception if a different error occurred
+
+def altstore_download(value):
+    # setting the base URL value
+    baseUrl = "https://cdn.altstore.io/file/altstore/apps.json"
+
+    # retrieving data from JSON Data
+    json_data = requests.get(baseUrl)
+    if json_data.status_code == 200:
+        data = json_data.json()
+        for app in data['apps']:
+            if app['name'] == "AltStore":
+                if value == "Check":
+                    size = app['versions'][0]['size']
+                    return size == os.path.getsize(f'{(altheapath)}/AltStore.ipa')
+                    break
+                if value == "Download":
+                    latest = app['versions'][0]['downloadURL']
+                    r = requests.get(
+                        latest,
+                        allow_redirects=True,
+                    )
+                    latest_filename = latest.split('/')[-1]
+                    open(f"{(altheapath)}/{(latest_filename)}", "wb").write(r.content)
+                    os.rename(f"{(altheapath)}/{(latest_filename)}", f"{(altheapath)}/AltStore.ipa")
+                    subprocess.run(f"chmod 755 {(altheapath)}/AltStore.ipa", shell=True)
+                    break
+        return True
+    else:
+        return False
+
+def ios_version():
+    silent_remove(f"{(altheapath)}/ideviceinfo.txt")
+    subprocess.run(f"ideviceinfo > {(altheapath)}/ideviceinfo.txt", shell=True)
+    result = "result"
+    pathsy = f"{(altheapath)}/ideviceinfo.txt"
+    with open(pathsy) as file:
+        # Iterate through lines
+        for line in file.readlines():
+            # Find the start of the word
+            index = line.find("ProductVersion: ")
+            # If the word is inside the line
+            if index != -1:
+                result = line[:-1][16:]
+    silent_remove(f"{(altheapath)}/ideviceinfo.txt")
+    print(result)
+    return(result)
+
+# Classes
 class SplashScreen(Handy.Window):
     def __init__(self):
         super().__init__(title="Loading")
@@ -385,7 +514,7 @@ class SplashScreen(Handy.Window):
         return 0
 
 
-class login(Gtk.Window):#
+class Login(Gtk.Window):#
     def __init__(self):
         super().__init__(title="Login")
         self.present()
@@ -936,176 +1065,32 @@ class OopsInternet(Handy.Window):
     def on_info_clicked2(self, widget):
         quitit()
 
-
-def notify():
-    if (connectioncheck()) == True:
-        LatestVersion = (
-            urllib.request.urlopen(
-                "https://raw.githubusercontent.com/vyvir/althea/main/resources/version"
+# Main function
+def main():
+    GLib.set_prgname("althea")  # Sets the global program name
+    global altheapath
+    #global file_name
+    if not os.path.exists(altheapath):  # Creates $HOME/.local/share/althea
+        os.mkdir(altheapath)
+    if Gtk.StatusIcon.is_embedded:
+        if connectioncheck():
+            global indicator
+            indicator = appindicator.Indicator.new(
+                "althea-tray-icon",
+                resource_path("resources/1.png"),
+                appindicator.IndicatorCategory.APPLICATION_STATUS,
             )
-            .readline()
-            .rstrip()
-            .decode()
-        )
-        if LatestVersion > LocalVersion:
-            Notify.init("MyProgram")
-            n = Notify.Notification.new(
-                "An update is available!",
-                "Click 'Download Update' in the tray menu.",
-                resource_path("resources/3.png"),
-            )
-            n.set_timeout(Notify.EXPIRES_DEFAULT)
-            # n.add_action("newupd", "Download", actionCallback)
-            n.show()
-            return True
+            indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
+            indicator.set_menu(menu())
+            indicator.set_status(appindicator.IndicatorStatus.PASSIVE)
+            openwindow(SplashScreen)
         else:
-            return False
+            openwindow(OopsInternet)  # Notify the user there is no Internet connection
     else:
-        return False
+        openwindow(Oops)  # Notify the user the tray icons aren't installed
+    Handy.init()
+    Gtk.main()
 
-
-def showurl(_):
-    Gtk.show_uri_on_window(
-        None, "https://github.com/vyvir/althea/releases", Gdk.CURRENT_TIME
-    )
-    quitit()
-
-
-def openwindow(window):
-    w = window()
-    w.show_all()
-
-
-def quitit():
-    subprocess.run(f"killall {AltServer}", shell=True)
-    subprocess.run(f"killall {AnisetteServer}", shell=True)
-    Gtk.main_quit()
-    os.kill(os.getpid(), signal.SIGKILL)
-
-
-def restartaltserver(_):
-    subprocess.run(f"killall {AltServer}", shell=True)
-    subprocess.run(f"killall {AnisetteServer}", shell=True)
-    subprocess.run("idevicepair pair", shell=True)
-    subprocess.run(
-        f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' ; {(altheapath)}/AltServer &""",
-        shell=True,
-    )
-
-
-def winerm():
-    silent_remove(f"{(altheapath)}/log.txt")
-    dialog = Gtk.MessageDialog(
-        # transient_for=self,
-        flags=0,
-        message_type=Gtk.MessageType.QUESTION,
-        buttons=Gtk.ButtonsType.YES_NO,
-        text="Do you want to login automatically?",
-    )
-    dialog.format_secondary_text("Your login and password have been saved earlier.")
-    response = dialog.run()
-    if response == Gtk.ResponseType.YES:
-        global apple_id
-        global password
-        f = open(f"{(altheapath)}/saved.txt", "r")
-        for line in f:
-            apple_id, password = line.split(" ")
-        f.close()
-        print(apple_id, password)
-        global savedcheck
-        savedcheck = True
-        login().on_click_me_clicked1()
-    else:
-        silent_remove(f"{(altheapath)}/saved.txt")
-        win3 = login()
-        win3.show_all()
-    dialog.destroy()
-
-
-def win1():
-    if os.path.isfile(f"{(altheapath)}/saved.txt"):
-        winerm()
-    else:
-        openwindow(login)
-
-
-def win2(_):
-    if os.path.isfile(f"{(altheapath)}/saved.txt"):
-        winerm()
-    else:
-        openwindow(login)
-
-
-def actionCallback(notification, action, user_data=None):
-    Gtk.show_uri_on_window(
-        None, "https://github.com/vyvir/althea/releases", Gdk.CURRENT_TIME
-    )
-    quitit()
-
-
-def launchatlogin1(_):
-    global command_six
-    if command_six.get_active():
-        global AutoStart
-        os.popen(AutoStart).read()
-        return True
-    else:
-        silent_remove("$HOME/.config/autostart/althea.desktop")
-        return False
-
-
-def silent_remove(filename):
-    try:
-        os.remove(filename)
-    except OSError as e:
-        if e.errno != errno.ENOENT:  # errno.ENOENT = no such file or directory
-            raise  # re-raise exception if a different error occurred
-
-def altstore_download(value):
-    # setting the base URL value
-    baseUrl = "https://cdn.altstore.io/file/altstore/apps.json"
-
-    # retrieving data from JSON Data
-    json_data = requests.get(baseUrl)
-    if json_data.status_code == 200:
-        data = json_data.json()
-        for app in data['apps']:
-            if app['name'] == "AltStore":
-                if value == "Check":
-                    size = app['versions'][0]['size']
-                    return size == os.path.getsize(f'{(altheapath)}/AltStore.ipa')
-                    break
-                if value == "Download":
-                    latest = app['versions'][0]['downloadURL']
-                    r = requests.get(
-                        latest,
-                        allow_redirects=True,
-                    )
-                    latest_filename = latest.split('/')[-1]
-                    open(f"{(altheapath)}/{(latest_filename)}", "wb").write(r.content)
-                    os.rename(f"{(altheapath)}/{(latest_filename)}", f"{(altheapath)}/AltStore.ipa")
-                    subprocess.run(f"chmod 755 {(altheapath)}/AltStore.ipa", shell=True)
-                    break
-        return True
-    else:
-        return False
-
-def ios_version():
-    silent_remove(f"{(altheapath)}/ideviceinfo.txt")
-    subprocess.run(f"ideviceinfo > {(altheapath)}/ideviceinfo.txt", shell=True)
-    result = "result"
-    pathsy = f"{(altheapath)}/ideviceinfo.txt"
-    with open(pathsy) as file:
-        # Iterate through lines
-        for line in file.readlines():
-            # Find the start of the word
-            index = line.find("ProductVersion: ")
-            # If the word is inside the line
-            if index != -1:
-                result = line[:-1][16:]
-    silent_remove(f"{(altheapath)}/ideviceinfo.txt")
-    print(result)
-    return(result)
-
+# Call main
 if __name__ == "__main__":
     main()
