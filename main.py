@@ -269,7 +269,7 @@ def winerm():
         Login().on_click_me_clicked1()
     else:
         silent_remove(f"{(altheapath)}/saved.txt")
-        win3 = login()
+        win3 = Login()
         win3.show_all()
     dialog.destroy()
 
@@ -277,13 +277,13 @@ def win1():
     if os.path.isfile(f"{(altheapath)}/saved.txt"):
         winerm()
     else:
-        openwindow(login)
+        openwindow(Login)
 
 def win2(_):
     if os.path.isfile(f"{(altheapath)}/saved.txt"):
         winerm()
     else:
-        openwindow(login)
+        openwindow(Login)
 
 def actionCallback(notification, action, user_data=None):
     Gtk.show_uri_on_window(
