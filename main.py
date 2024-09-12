@@ -266,7 +266,7 @@ def winerm():
         print(apple_id, password)
         global savedcheck
         savedcheck = True
-        login().on_click_me_clicked1()
+        Login().on_click_me_clicked1()
     else:
         silent_remove(f"{(altheapath)}/saved.txt")
         win3 = login()
