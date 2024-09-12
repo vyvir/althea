@@ -261,7 +261,7 @@ def winerm():
         global password
         f = open(f"{(altheapath)}/saved.txt", "r")
         for line in f:
-            apple_id, password = line.split(" ")
+            apple_id, password = line.split("ł") # unacceptable char both in e-mail and apple id
         f.close()
         print(apple_id, password)
         global savedcheck
