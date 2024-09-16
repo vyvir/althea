@@ -281,7 +281,7 @@ def winerm():
         win3 = Login()
         win3.show_all()
     dialog.destroy()
-    
+
 def win1():
     if os.path.isfile(f"{(altheapath)}/saved.txt"):
         winerm()
@@ -893,27 +893,27 @@ class DialogExample(Gtk.Dialog):
             super().__init__(title="Verification code", transient_for=parent, flags=0)
         else:
             super().__init__(title="Verification code", flags=0)
-            self.present()
-            self.add_buttons(
-                Gtk.STOCK_CANCEL,
-                Gtk.ResponseType.CANCEL,
-                Gtk.STOCK_OK,
-                Gtk.ResponseType.OK,
-            )
-            self.set_resizable(False)
-            self.set_border_width(10)
 
-            labelhelp = Gtk.Label(
-                label="Enter the verification \ncode on your device: "
-            )
-            labelhelp.set_justify(Gtk.Justification.CENTER)
+        self.set_resizable(False)
+        self.set_border_width(10)
 
-            self.entry2 = Gtk.Entry()
+        self.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK,
+        )
 
-            box = self.get_content_area()
-            box.add(labelhelp)
-            box.add(self.entry2)
-            self.show_all()
+        labelhelp = Gtk.Label(label="Enter the verification \ncode on your device:")
+        labelhelp.set_justify(Gtk.Justification.CENTER)
+
+        self.entry2 = Gtk.Entry()
+
+        box = self.get_content_area()
+        box.add(labelhelp)
+        box.add(self.entry2)
+
+        self.show_all()
+        self.present()
+        self.entry2.grab_focus()
 
 
 class DialogExample2(Gtk.Dialog):
@@ -1074,13 +1074,21 @@ class OopsInternet(Handy.Window):
     def on_info_clicked2(self, widget):
         quitit()
 
-# Main function
 def main():
-    GLib.set_prgname("althea")  # Sets the global program name
+    GLib.set_prgname("althea")
+
     global altheapath
     #global file_name
-    if not os.path.exists(altheapath):  # Creates $HOME/.local/share/althea
-        os.mkdir(altheapath)
+    altheapath = os.path.expanduser("~/.local/share/althea")
+
+    if not os.path.exists(altheapath):
+        os.makedirs(altheapath)
+
+    log_file_path = os.path.join(altheapath, "log.txt")
+    if not os.path.isfile(log_file_path):
+        with open(log_file_path, 'w') as f:
+            f.write("")
+
     if Gtk.StatusIcon.is_embedded:
         if connectioncheck():
             global indicator
@@ -1094,9 +1102,10 @@ def main():
             indicator.set_status(appindicator.IndicatorStatus.PASSIVE)
             openwindow(SplashScreen)
         else:
-            openwindow(OopsInternet)  # Notify the user there is no Internet connection
+            openwindow(OopsInternet)
     else:
-        openwindow(Oops)  # Notify the user the tray icons aren't installed
+        openwindow(Oops)
+
     Handy.init()
     Gtk.main()
 
