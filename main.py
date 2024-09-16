@@ -259,20 +259,29 @@ def winerm():
     if response == Gtk.ResponseType.YES:
         global apple_id
         global password
-        f = open(f"{(altheapath)}/saved.txt", "r")
-        for line in f:
-            apple_id, password = line.split("ł") # unacceptable char both in e-mail and apple id
-        f.close()
-        print(apple_id, password)
-        global savedcheck
-        savedcheck = True
-        Login().on_click_me_clicked1()
+        try:
+            with open(f"{(altheapath)}/saved.txt", "r") as f:
+                for line in f:
+                    if 'ł' in line:
+                        apple_id, password = line.split("ł")
+                        break
+                    else:
+                        print("Invalid line format:", line)
+                        continue
+            print(apple_id, password)
+            global savedcheck
+            savedcheck = True
+            Login().on_click_me_clicked1()
+        except ValueError as e:
+            print("Error reading credentials:", e)
+        except FileNotFoundError as e:
+            print("File not found:", e)
     else:
         silent_remove(f"{(altheapath)}/saved.txt")
         win3 = Login()
         win3.show_all()
     dialog.destroy()
-
+    
 def win1():
     if os.path.isfile(f"{(altheapath)}/saved.txt"):
         winerm()
