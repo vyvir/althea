@@ -49,6 +49,9 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
+    installedcheck = subprocess.run("test -e /usr/lib/althea/althea", shell=True).returncode == 0
+    base_path = "/usr/lib/althea" if installedcheck else os.path.abspath(".")
+
 
 # Global variables
 ipa_path_exists = False  # Checks if the IPA path has been defined by user
@@ -88,51 +91,39 @@ def connectioncheck():
 def menu():
     menu = Gtk.Menu()
 
-    if (notify()) == True:
+    if notify():
         command_upd = Gtk.MenuItem(label="Download Update")
         command_upd.connect("activate", showurl)
         menu.append(command_upd)
 
         menu.append(Gtk.SeparatorMenuItem())
 
-    command_one = Gtk.MenuItem(label="About althea")
-    command_one.connect("activate", on_abtdlg)
-    menu.append(command_one)
+    commands = [
+        ("About althea", on_abtdlg),
+        ("Install AltStore", altstoreinstall),
+        ("Install an IPA file", altserverfile),
+        ("Pair", lambda x: openwindow(PairWindow)),
+        ("Restart AltServer", restartaltserver),
+        ("Quit althea", lambda x: quitit())
+    ]
 
-    menu.append(Gtk.SeparatorMenuItem())
+    for label, callback in commands:
+        command = Gtk.MenuItem(label=label)
+        command.connect("activate", callback)
+        menu.append(command)
+        if label == "About althea":
+            menu.append(Gtk.SeparatorMenuItem())
 
-    command_two = Gtk.MenuItem(label="Install AltStore")
-    command_two.connect("activate", altstoreinstall)
-    menu.append(command_two)
-
-    command_three = Gtk.MenuItem(label="Install an IPA file")
-    command_three.connect("activate", altserverfile)
-    menu.append(command_three)
-
-    command_four = Gtk.MenuItem(label="Pair")
-    command_four.connect("activate", lambda x: openwindow(PairWindow))
-    menu.append(command_four)
-
-    command_five = Gtk.MenuItem(label="Restart AltServer")
-    command_five.connect("activate", restartaltserver)
-    menu.append(command_five)
-
-    menu.append(Gtk.SeparatorMenuItem())
-
-    CheckRun11 = subprocess.run(f"test -e /usr/lib/althea/althea", shell=True)
-    if CheckRun11.returncode == 0:
-        global command_six
-        CheckRun12 = subprocess.run(
-            f"test -e $HOME/.config/autostart/althea.desktop", shell=True
-        )
-        if CheckRun12.returncode == 0:
-            command_six.set_active(command_six)
-        command_six.connect("activate", launchatlogin1)
-        menu.append(command_six)
-
-    exittray = Gtk.MenuItem(label="Quit althea")
-    exittray.connect("activate", lambda x: quitit())
-    menu.append(exittray)
+    #CheckRun11 = subprocess.run(f"test -e /usr/lib/althea/althea", shell=True)
+    #if CheckRun11.returncode == 0:
+    #    global command_six
+    #    CheckRun12 = subprocess.run(
+    #        f"test -e $HOME/.config/autostart/althea.desktop", shell=True
+    #    )
+    #    if CheckRun12.returncode == 0:
+    #        command_six.set_active(command_six)
+    #    command_six.connect("activate", launchatlogin1)
+    #    menu.append(command_six)
 
     menu.show_all()
     return menu
@@ -261,7 +252,7 @@ def winerm():
         global password
         f = open(f"{(altheapath)}/saved.txt", "r")
         for line in f:
-            apple_id, password = line.split("ł") # unacceptable char both in e-mail and apple id
+            apple_id, password = line.strip().split(' ')
         f.close()
         print(apple_id, password)
         global savedcheck
@@ -573,7 +564,7 @@ class Login(Gtk.Window):#
                 password = self.entry.get_text()
                 f = open(f"{(altheapath)}/saved.txt", "x")
                 f.write(apple_id)
-                f.write(":")
+                f.write(" ")
                 f.write(password)
                 f.close()
             dialog.destroy()
