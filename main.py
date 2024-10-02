@@ -75,6 +75,7 @@ altheapath = os.path.join(
     os.environ.get("XDG_DATA_HOME") or f'{ os.environ["HOME"] }/.local/share',
     "althea",
 )
+export_anisette = "export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969'"
 
 # Check version
 with open(resource_path("resources/version"), "r", encoding="utf-8") as f:
@@ -232,7 +233,7 @@ def restartaltserver(_):
     subprocess.run(f"killall {AnisetteServer}", shell=True)
     subprocess.run("idevicepair pair", shell=True)
     subprocess.run(
-        f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' ; {(altheapath)}/AltServer &""",
+        f"""{export_anisette} ; {(altheapath)}/AltServer &""",
         shell=True,
     )
 
@@ -446,7 +447,8 @@ class SplashScreen(Handy.Window):
             silent_remove(f"{(altheapath)}/am.apk")
             self.loadalthea.set_fraction(0.4)
         self.lbl1.set_text("Starting anisette-server...")
-        subprocess.run(f"cd {(altheapath)} && ./anisette-server &", shell=True)#-n 127.0.0.1 -p 6969 &", shell=True
+        subprocess.run(f"{(altheapath)}/anisette-server -n 127.0.0.1 -p 6969 &", shell=True)
+        #subprocess.run(f"cd {(altheapath)} && ./anisette-server &", shell=True)#-n 127.0.0.1 -p 6969 &", shell=True
         self.loadalthea.set_fraction(0.5)
         finished = False
         while not finished:
@@ -501,7 +503,7 @@ class SplashScreen(Handy.Window):
                 altstore_download("Download")
         self.lbl1.set_text("Starting AltServer...")
         self.loadalthea.set_fraction(1.0)
-        subprocess.run(f"{(altheapath)}/AltServer &", shell=True)
+        subprocess.run(f"{export_anisette} ; {(altheapath)}/AltServer &", shell=True)
         return 0
 
 
@@ -594,7 +596,7 @@ class Login(Gtk.Window):#
             #f.close()
             if os.path.isdir(f'{ os.environ["HOME"] }/.adi'):
                 rmtree(f'{ os.environ["HOME"] }/.adi')
-            InsAltStoreCMD = f"""export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969' ; {(AltServer)} -u {UDID} -a {apple_id} -p {password} {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
+            InsAltStoreCMD = f"""{export_anisette} ; {(AltServer)} -u {UDID} -a {apple_id} -p {password} {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
             InsAltStore = subprocess.Popen(
                 InsAltStoreCMD,
                 stdin=subprocess.PIPE,
