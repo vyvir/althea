@@ -54,12 +54,12 @@ def resource_path(relative_path):
 
 
 # Global variables
-ipa_path_exists = False  # Checks if the IPA path has been defined by user
+ipa_path_exists = False
 savedcheck = False
 InsAltStore = subprocess.Popen(
     "test", stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
 )
-lolcheck = "lol"  # Redirects user either to login or to file chooser; If the "Pair" option was selected, it closes the dialog
+login_or_file_chooser = "login"
 apple_id = "lol"
 password = "lol"
 Warnmsg = "warn"
@@ -101,10 +101,11 @@ def menu():
 
     commands = [
         ("About althea", on_abtdlg),
+        ("Settings", lambda x: openwindow(SettingsWindow)),
         ("Install AltStore", altstoreinstall),
         ("Install an IPA file", altserverfile),
         ("Pair", lambda x: openwindow(PairWindow)),
-        ("Restart AltServer", restartaltserver),
+        ("Restart AltServer", restart_altserver),
         ("Quit althea", lambda x: quitit())
     ]
 
@@ -112,19 +113,20 @@ def menu():
         command = Gtk.MenuItem(label=label)
         command.connect("activate", callback)
         menu.append(command)
-        if label == "About althea":
+        if label == "Settings":
             menu.append(Gtk.SeparatorMenuItem())
 
-    #CheckRun11 = subprocess.run(f"test -e /usr/lib/althea/althea", shell=True)
-    #if CheckRun11.returncode == 0:
-    #    global command_six
-    #    CheckRun12 = subprocess.run(
-    #        f"test -e $HOME/.config/autostart/althea.desktop", shell=True
-    #    )
-    #    if CheckRun12.returncode == 0:
-    #        command_six.set_active(command_six)
-    #    command_six.connect("activate", launchatlogin1)
-    #    menu.append(command_six)
+    CheckRun11 = subprocess.run(f"test -e /usr/lib/althea/althea", shell=True)
+    if installedcheck:
+        global command_six
+        CheckRun12 = subprocess.run(
+            f"test -e $HOME/.config/autostart/althea.desktop", shell=True
+        )
+        if CheckRun12.returncode == 0:
+            command_six.set_active(command_six)
+        command_six.connect("activate", launchatlogin1)
+        menu.append(Gtk.SeparatorMenuItem())
+        menu.append(command_six)
 
     menu.show_all()
     return menu
@@ -166,16 +168,14 @@ def paircheck():  # Check if the device is paired already
 
 def altstoreinstall(_):
     if paircheck():
-        global lolcheck
-        lolcheck = "altstr"
         openwindow(PairWindow)
     else:
         win1()
 
 def altserverfile(_):
     if paircheck():
-        global lolcheck
-        lolcheck = "ipa"
+        global login_or_file_chooser
+        login_or_file_chooser = "file_chooser"
         openwindow(PairWindow)
     else:
         win2 = FileChooserWindow()
@@ -228,7 +228,7 @@ def quitit():
     Gtk.main_quit()
     os.kill(os.getpid(), signal.SIGKILL)
 
-def restartaltserver(_):
+def restart_altserver(_):
     subprocess.run(f"killall {AltServer}", shell=True)
     subprocess.run(f"killall {AnisetteServer}", shell=True)
     subprocess.run("idevicepair pair", shell=True)
@@ -237,7 +237,7 @@ def restartaltserver(_):
         shell=True,
     )
 
-def winerm():
+def use_saved_credentials():
     silent_remove(f"{(altheapath)}/log.txt")
     dialog = Gtk.MessageDialog(
         # transient_for=self,
@@ -267,13 +267,13 @@ def winerm():
 
 def win1():
     if os.path.isfile(f"{(altheapath)}/saved.txt"):
-        winerm()
+        use_saved_credentials()
     else:
         openwindow(Login)
 
 def win2(_):
     if os.path.isfile(f"{(altheapath)}/saved.txt"):
-        winerm()
+        use_saved_credentials()
     else:
         openwindow(Login)
 
@@ -461,12 +461,6 @@ class SplashScreen(Handy.Window):
             self.lbl1.set_text("Downloading AltServer...")
             self.loadalthea.set_fraction(0.6)
             
-            """
-            r = requests.get(
-                "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-x86_64",
-                allow_redirects=True,
-            )
-            """
             if computer_cpu_platform == 'AMD64':
                 r = requests.get(
                     "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-x86_64",
@@ -603,10 +597,10 @@ class Login(Gtk.Window):#
                 stdout=subprocess.PIPE,
                 shell=True,
             )
-        else:  # If the iOS version is lower than 15.0, AltServer-Linux won't run
+        else:
             global Failmsg
             Failmsg = "iOS 15.0 or later is required."
-            dialog2 = DialogExample3(self)
+            dialog2 = FailDialog(self)
             dialog2.run()
             dialog2.destroy()
             self.destroy()
@@ -638,7 +632,7 @@ class Login(Gtk.Window):#
                 Failmsg = subprocess.check_output(
                     f"tail -6 {(altheapath)}/log.txt", shell=True
                 ).decode()
-                dialog2 = DialogExample3(self)
+                dialog2 = FailDialog(self)
                 dialog2.run()
                 dialog2.destroy()
                 self.destroy()
@@ -656,7 +650,7 @@ class Login(Gtk.Window):#
                             f"tail -8 {('$HOME/.local/share/althea/log.txt')}",
                             shell=True,
                         ).decode()
-                        dialog1 = DialogExample2(self)
+                        dialog1 = WarningDialog(self)
                         response1 = dialog1.run()
                         if response1 == Gtk.ResponseType.OK:
                             dialog1.destroy()
@@ -672,7 +666,7 @@ class Login(Gtk.Window):#
                         Installing = True
             elif Check2fa.returncode == 0 and TwoFactorTime == 0:
                 Installing = False
-                dialog = DialogExample(self)
+                dialog = VerificationDialog(self)
                 response = dialog.run()
                 if response == Gtk.ResponseType.OK:
                     vercode = dialog.entry2.get_text()
@@ -801,19 +795,19 @@ class PairWindow(Handy.Window):
                 ["idevicepair pair"], shell=True, check=True, capture_output=True
             )
             self.destroy()
-            global lolcheck
+            global login_or_file_chooser
             global PATH
-            if lolcheck == "altstr":
+            if login_or_file_chooser == "file_chooser":
+                win2 = FileChooserWindow()
+            else:
                 PATH = f"{(altheapath)}/AltStore.ipa"
                 win1()
-            elif lolcheck == "ipa":
-                win2 = FileChooserWindow()
             global ipa_path_exists
             if ipa_path_exists == True:
                 PATH = win2.PATHFILE
                 win1()
                 ipa_path_exists = False
-            lolcheck = "lol"
+            login_or_file_chooser = "login"
         except subprocess.CalledProcessError as e:
             errormsg = e.output.decode("utf-8")
             dialog1 = Gtk.MessageDialog(
@@ -833,7 +827,7 @@ class PairWindow(Handy.Window):
 
 class FileChooserWindow(Gtk.Window):
     def __init__(self):
-        super().__init__(title="FileChooser Example")
+        super().__init__(title="File chooser")
         box = Gtk.Box()
         self.add(box)
 
@@ -871,7 +865,7 @@ class FileChooserWindow(Gtk.Window):
         dialog.add_filter(filter_any)
 
 
-class DialogExample(Gtk.Dialog):
+class VerificationDialog(Gtk.Dialog):
     def __init__(self, parent):
         if not savedcheck:
             super().__init__(title="Verification code", transient_for=parent, flags=0)
@@ -884,7 +878,7 @@ class DialogExample(Gtk.Dialog):
                 Gtk.STOCK_OK,
                 Gtk.ResponseType.OK,
             )
-            self.set_resizable(False)
+            self.set_resizable(True)
             self.set_border_width(10)
 
             labelhelp = Gtk.Label(
@@ -900,7 +894,7 @@ class DialogExample(Gtk.Dialog):
             self.show_all()
 
 
-class DialogExample2(Gtk.Dialog):
+class WarningDialog(Gtk.Dialog):
     def __init__(self, parent):
         global Warnmsg
         super().__init__(title="Warning", transient_for=parent, flags=0)
@@ -926,7 +920,7 @@ class DialogExample2(Gtk.Dialog):
         self.show_all()
 
 
-class DialogExample3(Gtk.Dialog):
+class FailDialog(Gtk.Dialog):
     def __init__(self, parent):
         global Failmsg
         super().__init__(title="Fail", transient_for=parent, flags=0)
@@ -1057,6 +1051,71 @@ class OopsInternet(Handy.Window):
 
     def on_info_clicked2(self, widget):
         quitit()
+
+class SettingsWindow(Handy.Window):
+    def __init__(self):
+        super().__init__(title="Settings")
+        self.present()
+        self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        self.set_resizable(False)
+        #self.set_size_request(450, 100)
+        self.set_border_width(10)
+
+        # WindowHandle
+        handle = Handy.WindowHandle()
+        self.add(handle)
+        box = Gtk.VBox()
+        vb = Gtk.VBox(spacing=0, orientation=Gtk.Orientation.VERTICAL)
+
+        # Headerbar
+        self.hb = Handy.HeaderBar()
+        self.hb.set_show_close_button(True)
+        self.hb.props.title = "Settings"
+        vb.pack_start(self.hb, False, True, 0)
+
+        pixbuf = Gtk.IconTheme.get_default().load_icon(
+            "emblem-system-symbolic", 48, 0
+        )
+        image = Gtk.Image.new_from_pixbuf(pixbuf)
+        image.show()
+        image.set_margin_top(10)
+        vb.pack_start(image, True, True, 0)
+
+        lbl1 = Gtk.Label()
+        lbl1.set_justify(Gtk.Justification.CENTER)
+        lbl1.set_markup(
+            "These settings are experimental. Use at own risk."
+        )
+        lbl1.set_property("margin_left", 15)
+        lbl1.set_property("margin_right", 15)
+        lbl1.set_margin_top(10)
+
+        button = Gtk.Button(label="OK")
+        button.set_property("margin_left", 125)
+        button.set_property("margin_right", 125)
+        button.connect("clicked", self.on_info_clicked2)
+
+        button1 = Gtk.Button(label="Open PairWindow")
+        button1.set_property("margin_left", 125)
+        button1.set_property("margin_right", 125)
+        button1.connect("clicked", self.on_info_clicked3)
+
+        handle.add(vb)
+        vb.pack_start(lbl1, expand=False, fill=True, padding=0)
+        vb.pack_start(button, False, False, 10)
+        vb.pack_start(button1, False, False, 10)
+        box.add(vb)
+        self.add(box)
+        self.show_all()
+
+    def on_info_clicked2(self, widget):
+        self.destroy()
+
+    def on_info_clicked3(self, widget):
+        openwindow(PairWindow)
+
+
+# -----------------------------------------------------------------------------
 
 # Main function
 def main():
