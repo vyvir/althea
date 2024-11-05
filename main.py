@@ -590,7 +590,7 @@ class Login(Gtk.Window):#
             #f.close()
             if os.path.isdir(f'{ os.environ["HOME"] }/.adi'):
                 rmtree(f'{ os.environ["HOME"] }/.adi')
-            InsAltStoreCMD = f"""{export_anisette} ; {(AltServer)} -u {UDID} -a {apple_id} -p {password} {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
+            InsAltStoreCMD = f"""{export_anisette} ; {(AltServer)} -u {UDID} -a {apple_id} -p \"{password}\" {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
             InsAltStore = subprocess.Popen(
                 InsAltStoreCMD,
                 stdin=subprocess.PIPE,
