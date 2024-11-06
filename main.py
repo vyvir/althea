@@ -390,6 +390,37 @@ class SplashScreen(Handy.Window):
         else:
             GLib.timeout_add(200, self.wait_for_t, self.t)
 
+    def download_bin(self, name, link):
+        match computer_cpu_platform:
+            case 'x86_64':
+                r = requests.get(
+                    f"{link}-x86_64",
+                    allow_redirects=True,
+                )
+            case 'aarch64':
+                r = requests.get(
+                    f"{link}-aarch64",
+                    allow_redirects=True
+                )
+            case _:
+                if computer_cpu_platform.find('v7') != -1 \
+                    or computer_cpu_platform.find('ARM') != -1 \
+                        or computer_cpu_platform.find('hf') != -1:
+                            r = requests.get(
+                                f"{link}-armv7",
+                                allow_redirects=True
+                            )
+                else:
+                    self.lbl1.set_text('Could not identify the CPU architecture, downloading the x86_64 version...')
+                    r = requests.get(
+                        f"{link}-x86_64",
+                        allow_redirects=True,
+                    )
+        open(f"{(altheapath)}/{name}", "wb").write(r.content)
+        subprocess.run(f"chmod +x {(altheapath)}/{name}", shell=True)
+        subprocess.run(f"chmod 755 {(altheapath)}/{name}", shell=True)
+
+    
     def startup_process(self):
         self.lbl1.set_text("Checking if anisette-server is already running...")
         self.loadalthea.set_fraction(0.1)
@@ -397,34 +428,7 @@ class SplashScreen(Handy.Window):
         CheckRun = subprocess.run(command, shell=True)
         if not os.path.isfile(f"{(altheapath)}/anisette-server"):
             self.lbl1.set_text("Downloading anisette-server...")
-            if computer_cpu_platform == 'x86_64':
-                r = requests.get(
-                    "https://github.com/vyvir/althea/releases/download/v0.5.0/anisette-server-x86_64",
-                    allow_redirects=True,
-                )
-            elif computer_cpu_platform == "aarch64":
-                #Thanks, Dadoum for the anisette server!
-                #or vyvir, do not forget to upload ur version of server.
-                r = requests.get(
-                    "https://github.com/vyvir/althea/releases/download/v0.5.0/anisette-server-aarch64",
-                    allow_redirects=True
-                )
-                #sorry i dont know what will arm32 output
-            elif computer_cpu_platform.find('v7') != -1 or computer_cpu_platform.find('ARM') != -1 or computer_cpu_platform.find('hf') != -1:
-                r = requests.get(
-                    "https://github.com/vyvir/althea/releases/download/v0.5.0/anisette-server-armv7",
-                    allow_redirects=True
-                )
-            else:
-                print('WARNING: YOUR CPU IS NOT SUPPORTED, THE PROGRAM MAY NOT WORK!')
-                #ooops, just download x86-64 ver
-                r = requests.get(
-                    "https://github.com/vyvir/althea/releases/download/v0.5.0/anisette-server-x86_64",
-                    allow_redirects=True,
-                )
-            open(f"{(altheapath)}/anisette-server", "wb").write(r.content)
-            subprocess.run(f"chmod +x {(altheapath)}/anisette-server", shell=True)
-            subprocess.run(f"chmod 755 {(altheapath)}/anisette-server", shell=True)
+            self.download_bin("anisette-server", "https://github.com/vyvir/althea/releases/download/v0.5.0/anisette-server")
             self.loadalthea.set_fraction(0.2)
             self.lbl1.set_text("Downloading Apple Music APK...")
             r = requests.get(
@@ -457,34 +461,9 @@ class SplashScreen(Handy.Window):
             else:
                 sleep(1)
         if not os.path.isfile(f"{(altheapath)}/AltServer"):
+            self.download_bin("AltServer", "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer")
             self.lbl1.set_text("Downloading AltServer...")
             self.loadalthea.set_fraction(0.6)
-            
-            if computer_cpu_platform == 'AMD64':
-                r = requests.get(
-                    "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-x86_64",
-                    allow_redirects=True,
-                )
-            elif computer_cpu_platform == 'aarch64':
-                r = requests.get(
-                    "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-aarch64",
-                    allow_redirects=True
-                )
-            elif computer_cpu_platform.find('v7') != -1 or computer_cpu_platform.find('ARM') != -1 or computer_cpu_platform.find('hf') != -1:
-                r = requests.get(
-                    "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-armv7",
-                    allow_redirects=True
-                )
-            else:
-                print('WARNING: YOUR CPU IS NOT SUPPORTED, AltServer MAY NOT WORK!')
-                #ooops, just download x86-64 ver
-                r = requests.get(
-                    "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer-x86_64",
-                    allow_redirects=True,
-                )
-            open(f"{(altheapath)}/AltServer", "wb").write(r.content)
-            subprocess.run(f"chmod +x {(altheapath)}/AltServer", shell=True)
-            subprocess.run(f"chmod 755 {(altheapath)}/AltServer", shell=True)
         self.loadalthea.set_fraction(0.8)
         if not os.path.isfile(f"{(altheapath)}/AltStore.ipa"):
             self.lbl1.set_text("Downloading AltStore...")
@@ -500,7 +479,7 @@ class SplashScreen(Handy.Window):
         return 0
 
 
-class Login(Gtk.Window):#
+class Login(Gtk.Window):
     def __init__(self):
         super().__init__(title="Login")
         self.present()
