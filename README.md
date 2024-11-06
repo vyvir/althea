@@ -60,7 +60,7 @@ That's it! Have fun with althea!
 
 ## FAQ
 
-- Fedora 41 shows the following error:
+<b>Fedora 41 shows the following error:</b>
 
 `ERROR: Device returned unhandled error code -5`
 
