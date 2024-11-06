@@ -944,7 +944,7 @@ class FailDialog(Gtk.Dialog):
 
 
 class Oops(Handy.Window):
-    def __init__(self):
+    def __init__(self, markup_text, pixbuf_icon):
         super().__init__(title="Error")
         self.present()
         self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
@@ -965,7 +965,7 @@ class Oops(Handy.Window):
         vb.pack_start(self.hb, False, True, 0)
 
         pixbuf = Gtk.IconTheme.get_default().load_icon(
-            "application-x-addon-symbolic", 48, 0
+            pixbuf_icon, 48, 0
         )
         image = Gtk.Image.new_from_pixbuf(pixbuf)
         image.show()
@@ -974,66 +974,9 @@ class Oops(Handy.Window):
 
         lbl1 = Gtk.Label()
         lbl1.set_justify(Gtk.Justification.CENTER)
-        lbl1.set_markup(
-            "You don't have the AppIndicator extension installed.\nYou can download it on "
-            '<a href="https://extensions.gnome.org/extension/615/appindicator-support/" '
-            'title="GNOME Extensions">GNOME Extensions</a>.'
-        )
+        lbl1.set_markup(markup_text)
         lbl1.set_property("margin_left", 15)
         lbl1.set_property("margin_right", 15)
-        lbl1.set_margin_top(10)
-
-        button = Gtk.Button(label="OK")
-        button.set_property("margin_left", 125)
-        button.set_property("margin_right", 125)
-        button.connect("clicked", self.on_info_clicked2)
-
-        handle.add(vb)
-        vb.pack_start(lbl1, expand=False, fill=True, padding=0)
-        vb.pack_start(button, False, False, 10)
-        box.add(vb)
-        self.add(box)
-        self.show_all()
-
-    def on_info_clicked2(self, widget):
-        quitit()
-
-
-class OopsInternet(Handy.Window):
-    def __init__(self):
-        super().__init__(title="Error")
-        self.present()
-        self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
-        self.set_resizable(False)
-        self.set_size_request(450, 100)
-        self.set_border_width(10)
-
-        # WindowHandle
-        handle = Handy.WindowHandle()
-        self.add(handle)
-        box = Gtk.VBox()
-        vb = Gtk.VBox(spacing=0, orientation=Gtk.Orientation.VERTICAL)
-
-        # Headerbar
-        self.hb = Handy.HeaderBar()
-        self.hb.set_show_close_button(True)
-        self.hb.props.title = "Error"
-        vb.pack_start(self.hb, False, True, 0)
-
-        pixbuf = Gtk.IconTheme.get_default().load_icon(
-            "network-wireless-no-route-symbolic", 48, 0
-        )
-        image = Gtk.Image.new_from_pixbuf(pixbuf)
-        image.show()
-        image.set_margin_top(10)
-        vb.pack_start(image, True, True, 0)
-
-        lbl1 = Gtk.Label(
-            label="althea is unable to connect to the Internet.\nPlease connect to the Internet and restart althea."
-        )
-        lbl1.set_property("margin_left", 15)
-        lbl1.set_property("margin_right", 15)
-        lbl1.set_justify(Gtk.Justification.CENTER)
         lbl1.set_margin_top(10)
 
         button = Gtk.Button(label="OK")
@@ -1136,9 +1079,17 @@ def main():
             indicator.set_status(appindicator.IndicatorStatus.PASSIVE)
             openwindow(SplashScreen)
         else:
-            openwindow(OopsInternet)  # Notify the user there is no Internet connection
+            markup_text = "althea is unable to connect to the Internet.\nPlease connect to the Internet and restart althea."
+            pixbuf_icon = "network-wireless-no-route-symbolic"
+            Oops(markup_text, pixbuf_icon)  # Notify the user there is no Internet connection
     else:
-        openwindow(Oops)  # Notify the user the tray icons aren't installed
+        markup_text = (
+            "You don't have the AppIndicator extension installed.\n"
+            'You can download it on <a href="https://extensions.gnome.org/extension/615/appindicator-support/" '
+            'title="GNOME Extensions">GNOME Extensions</a>.'
+        )
+        pixbuf_icon = "application-x-addon-symbolic"
+        Oops(markup_text, pixbuf_icon)  # Notify the user the tray icons aren't installed
     Handy.init()
     Gtk.main()
 
