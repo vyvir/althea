@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import os
 import errno
-from re import T
 from shutil import rmtree
 import json
 import urllib.request
