@@ -58,6 +58,18 @@ python3.11 main.py
 
 That's it! Have fun with althea!
 
+## FAQ
+
+- Fedora 41 shows the following error:
+
+`ERROR: Device returned unhandled error code -5`
+
+This is related to [libimobiledevice and its packaging in Fedora 41](https://bugzilla.redhat.com/show_bug.cgi?id=2321958).
+
+You can downgrade crypto policies to the previous Fedora version:
+
+`sudo update-crypto-policies --set FEDORA40`
+
 ## Credits
 
 althea made by [vyvir](https://github.com/vyvir)
