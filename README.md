@@ -64,8 +64,6 @@ That's it! Have fun with althea!
 
 `ERROR: Device returned unhandled error code -5`
 
-This is related to [libimobiledevice and its packaging in Fedora 41](https://bugzilla.redhat.com/show_bug.cgi?id=2321958).
-
 You can downgrade crypto policies to the previous Fedora version:
 
 `sudo update-crypto-policies --set FEDORA40`
