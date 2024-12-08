@@ -849,27 +849,27 @@ class VerificationDialog(Gtk.Dialog):
             super().__init__(title="Verification code", transient_for=parent, flags=0)
         else:
             super().__init__(title="Verification code", flags=0)
-            self.present()
-            self.add_buttons(
-                Gtk.STOCK_CANCEL,
-                Gtk.ResponseType.CANCEL,
-                Gtk.STOCK_OK,
-                Gtk.ResponseType.OK,
-            )
-            self.set_resizable(True)
-            self.set_border_width(10)
+        self.present()
+        self.add_buttons(
+            Gtk.STOCK_CANCEL,
+            Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK,
+            Gtk.ResponseType.OK,
+        )
+        self.set_resizable(True)
+        self.set_border_width(10)
 
-            labelhelp = Gtk.Label(
-                label="Enter the verification \ncode on your device: "
-            )
-            labelhelp.set_justify(Gtk.Justification.CENTER)
+        labelhelp = Gtk.Label(
+            label="Enter the verification \ncode on your device: "
+        )
+        labelhelp.set_justify(Gtk.Justification.CENTER)
 
-            self.entry2 = Gtk.Entry()
+        self.entry2 = Gtk.Entry()
 
-            box = self.get_content_area()
-            box.add(labelhelp)
-            box.add(self.entry2)
-            self.show_all()
+        box = self.get_content_area()
+        box.add(labelhelp)
+        box.add(self.entry2)
+        self.show_all()
 
 
 class WarningDialog(Gtk.Dialog):
