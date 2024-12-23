@@ -19,21 +19,21 @@ sudo add-apt-repository universe -y
 ```
 
 ```
-sudo apt-get install binutils python3-pip python3-requests git gir1.2-appindicator3-0.1 usbmuxd libimobiledevice6 libimobiledevice-utils wget curl libavahi-compat-libdnssd-dev zlib1g-dev unzip usbutils libhandy-1-dev gir1.2-notify-0.7 python3-requests psmisc
+sudo apt-get install binutils python3-pip python3-requests python3-keyring git gir1.2-appindicator3-0.1 usbmuxd libimobiledevice6 libimobiledevice-utils wget curl libavahi-compat-libdnssd-dev zlib1g-dev unzip usbutils libhandy-1-dev gir1.2-notify-0.7 psmisc
 ```
 
 Fedora:
 ```
-sudo dnf install binutils python3-pip python3-requests git libappindicator-gtk3 usbmuxd libimobiledevice-devel libimobiledevice-utils wget curl avahi-compat-libdns_sd-devel dnf-plugins-core unzip usbutils psmisc
+sudo dnf install binutils python3-pip python3-requests python3-keyring git libappindicator-gtk3 usbmuxd libimobiledevice-devel libimobiledevice-utils wget curl avahi-compat-libdns_sd-devel dnf-plugins-core unzip usbutils psmisc
 ```
 Arch Linux:
 ```
-sudo pacman -S binutils wget curl git python-pip python-requests python-gobject libappindicator-gtk3 usbmuxd libimobiledevice avahi zlib unzip usbutils psmisc libhandy
+sudo pacman -S binutils wget curl git python-pip python-requests python-gobject python-keyring libappindicator-gtk3 usbmuxd libimobiledevice avahi zlib unzip usbutils psmisc libhandy
 ```
 
 OpenSUSE:
 ```
-sudo zypper in binutils wget curl git python311-pip python311-requests python311-gobject-Gdk libhandy-devel libappindicator3-1 typelib-1_0-AppIndicator3-0_1 imobiledevice-tools libdns_sd libnotify-devel psmisc
+sudo zypper in binutils wget curl git python311-pip python311-requests python311-keyring python311-gobject-Gdk libhandy-devel libappindicator3-1 typelib-1_0-AppIndicator3-0_1 imobiledevice-tools libdns_sd libnotify-devel psmisc
 ```
 
 ### Running althea

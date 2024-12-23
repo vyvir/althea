@@ -10,6 +10,7 @@ import requests
 import subprocess
 import signal
 import threading
+import keyring
 from time import sleep
 import platform
 
@@ -250,28 +251,27 @@ def use_saved_credentials():
     if response == Gtk.ResponseType.YES:
         global apple_id
         global password
-        f = open(f"{(altheapath)}/saved.txt", "r")
-        for line in f:
-            apple_id, password = line.strip().split(' ')
-        f.close()
+        apple_id = keyring.get_password("althea", "apple_id")
+        password = keyring.get_password("althea", "password")
         print(apple_id, password)
         global savedcheck
         savedcheck = True
         Login().on_click_me_clicked1()
     else:
-        silent_remove(f"{(altheapath)}/saved.txt")
+        apple_id = keyring.delete_password("althea", "apple_id")
+        password = keyring.delete_password("althea", "password")
         win3 = Login()
         win3.show_all()
     dialog.destroy()
 
 def win1():
-    if os.path.isfile(f"{(altheapath)}/saved.txt"):
+    if keyring.get_password("althea", "apple_id"):
         use_saved_credentials()
     else:
         openwindow(Login)
 
 def win2(_):
-    if os.path.isfile(f"{(altheapath)}/saved.txt"):
+    if keyring.get_password("althea", "apple_id"):
         use_saved_credentials()
     else:
         openwindow(Login)
@@ -522,7 +522,7 @@ class Login(Gtk.Window):
 
     def on_click_me_clicked(self, button):
         silent_remove(f"{(altheapath)}/log.txt")
-        if not os.path.isfile(f"{(altheapath)}/saved.txt"):
+        if not keyring.get_password("althea", "apple_id"):
             self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
             dialog = Gtk.MessageDialog(
                 transient_for=self,
@@ -536,11 +536,8 @@ class Login(Gtk.Window):
             if response == Gtk.ResponseType.YES:
                 apple_id = self.entry1.get_text().lower()
                 password = self.entry.get_text()
-                f = open(f"{(altheapath)}/saved.txt", "x")
-                f.write(apple_id)
-                f.write(" ")
-                f.write(password)
-                f.close()
+                keyring.set_password("althea", "apple_id", apple_id)
+                keyring.set_password("althea", "password", password)
             dialog.destroy()
         self.entry.set_progress_pulse_step(0.2)
         # Call self.do_pulse every 100 ms
