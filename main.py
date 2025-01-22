@@ -253,7 +253,7 @@ def use_saved_credentials():
         global password
         apple_id = keyring.get_password("althea", "apple_id")
         password = keyring.get_password("althea", "password")
-        print(apple_id, password)
+        #print(apple_id, password)
         global savedcheck
         savedcheck = True
         Login().on_click_me_clicked1()
