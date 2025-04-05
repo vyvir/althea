@@ -1,5 +1,5 @@
 # althea
-<img src="https://github.com/vyvir/althea/blob/main/resources/4.png" alt="althea Logo">
+<img src="https://github.com/vyvir/althea/blob/main/resources/screenshot.png" alt="althea screenshot">
 
 althea is a GUI for AltServer-Linux that allows to easily sideload apps onto an iPhone, an iPad, or an iPod Touch. It supports iOS 15 and later. althea supports x86_64, aarch64, and armv7.
 
@@ -33,7 +33,7 @@ sudo pacman -S binutils wget curl git python-pip python-requests python-gobject 
 
 OpenSUSE:
 ```
-sudo zypper in binutils wget curl git python311-pip python311-requests python311-keyring python311-gobject-Gdk libhandy-devel libappindicator3-1 typelib-1_0-AppIndicator3-0_1 imobiledevice-tools libdns_sd libnotify-devel psmisc
+sudo zypper in binutils wget curl git python3-pip python3-requests python3-keyring python3-gobject-Gdk libhandy-devel libappindicator3-1 typelib-1_0-AppIndicator3-0_1 imobiledevice-tools libdns_sd libnotify-devel psmisc
 ```
 
 ### Running althea
@@ -49,11 +49,6 @@ cd althea
 
 ```
 python3 main.py
-```
-
-Note: if you're running OpenSUSE Leap, run the following command instead:
-```
-python3.11 main.py
 ```
 
 That's it! Have fun with althea!
