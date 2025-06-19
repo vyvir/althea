@@ -55,7 +55,7 @@ That's it! Have fun with althea!
 
 ## FAQ
 
-* <b>Fedora 41 shows the following error:</b>
+### <b>Fedora 41 shows the following error:</b>
 
 `ERROR: Device returned unhandled error code -5`
 
@@ -63,20 +63,21 @@ You can downgrade crypto policies to the previous Fedora version:
 
 `sudo update-crypto-policies --set FEDORA40`
 
-* <b> Error No such object path '/modules/kwalletd'<b>
+### <b> Error No such object path '/modules/kwalletd'<b>
 
-On Arch with Plasma 6, and I got the same error.  
+You can run the following commands:
+
 ```
 python3 -m venv venv
 source ./venv/bin/activate
 pip install pygobject requests keyring
 ```
-And then  
+
+And then run althea:
+
 ```
 python3 main.py
-```
-worked for me.  
-
+```  
 
 ## Credits
 
