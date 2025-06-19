@@ -63,7 +63,7 @@ You can downgrade crypto policies to the previous Fedora version:
 
 `sudo update-crypto-policies --set FEDORA40`
 
-### <b> Error No such object path '/modules/kwalletd'<b>
+### <b>Error No such object path '/modules/kwalletd'</b>
 
 You can run the following commands:
 
