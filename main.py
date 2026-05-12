@@ -90,6 +90,355 @@ def connectioncheck():
     except:
         return False
 
+# --- Sideloader (Dadoum) integration ------------------------------------------
+# AltServer-Linux's signer omits/mis-formats the DER-encoded entitlements blob
+# that XNU now requires; amfid accepts it but posix_spawn rejects with EBADEXEC.
+# Dadoum's Sideloader is a Linux-native sideloader that authenticates with
+# Apple ID, generates the cert + provisioning profile itself, signs with the
+# modern code-signature format (DER entitlements, SHA-256 CD), and installs
+# directly. We drive its CLI over a pty because it uses getpass().
+import pty
+import select
+import fcntl
+
+SIDELOADER_DIR = os.path.expanduser("~/.local/share/althea/sideloader")
+SIDELOADER_BIN = os.path.join(SIDELOADER_DIR, "sideloader")
+SIDELOADER_URL_X86_64 = "https://github.com/Dadoum/Sideloader/releases/download/1.0-pre4/sideloader-cli-x86_64-linux-gnu.zip"
+SIDELOADER_URL_AARCH64 = "https://github.com/Dadoum/Sideloader/releases/download/1.0-pre4/sideloader-cli-aarch64-linux-gnu.zip"
+
+def download_sideloader():
+    """Download Sideloader CLI if not present."""
+    if os.path.isfile(SIDELOADER_BIN) and os.access(SIDELOADER_BIN, os.X_OK):
+        return True
+    os.makedirs(SIDELOADER_DIR, exist_ok=True)
+    url = SIDELOADER_URL_AARCH64 if computer_cpu_platform == "aarch64" else SIDELOADER_URL_X86_64
+    arch_name = "aarch64" if computer_cpu_platform == "aarch64" else "x86_64"
+    bin_in_zip = f"sideloader-cli-{arch_name}-linux-gnu"
+    zip_path = os.path.join(SIDELOADER_DIR, "sl.zip")
+    try:
+        r = requests.get(url, allow_redirects=True, timeout=120)
+        with open(zip_path, "wb") as f:
+            f.write(r.content)
+        import zipfile
+        with zipfile.ZipFile(zip_path, "r") as z:
+            z.extract(bin_in_zip, SIDELOADER_DIR)
+        os.rename(os.path.join(SIDELOADER_DIR, bin_in_zip), SIDELOADER_BIN)
+        os.chmod(SIDELOADER_BIN, 0o755)
+        os.remove(zip_path)
+        return True
+    except Exception as e:
+        print(f"[althea] sideloader download failed: {e}")
+        return False
+
+# Sideloader process state, shared between the install thread and the GTK loop
+_sideloader_proc = None
+_sideloader_master_fd = None
+_sideloader_log_path = os.path.expanduser("~/.local/share/althea/log.txt")
+_sideloader_suppress_exit_marker = False
+
+def sideloader_send(line):
+    """Write a line + newline to the sideloader subprocess via the pty master fd."""
+    global _sideloader_master_fd
+    if _sideloader_master_fd is None:
+        return
+    try:
+        os.write(_sideloader_master_fd, (line + "\n").encode())
+    except OSError:
+        pass
+
+def sideloader_terminate():
+    global _sideloader_proc, _sideloader_master_fd, _sideloader_suppress_exit_marker
+    _sideloader_suppress_exit_marker = True
+    try:
+        if _sideloader_proc and _sideloader_proc.poll() is None:
+            _sideloader_proc.terminate()
+    except Exception:
+        pass
+    if _sideloader_master_fd is not None:
+        try:
+            os.close(_sideloader_master_fd)
+        except OSError:
+            pass
+        _sideloader_master_fd = None
+
+def sideloader_run_interactive_capture(cmd_args, apple_id_str, password_str):
+    """Run a sideloader command over a pty, feed Apple ID/password, return (returncode, output)."""
+    master_fd, slave_fd = pty.openpty()
+    env = os.environ.copy()
+    env["TERM"] = "dumb"
+    proc = subprocess.Popen(
+        cmd_args,
+        stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+        close_fds=True, env=env, preexec_fn=os.setsid,
+    )
+    os.close(slave_fd)
+    creds_sent = {"apple_id": False, "password": False}
+    buf = b""
+    output_chunks = []
+    while True:
+        try:
+            r, _, _ = select.select([master_fd], [], [], 0.2)
+        except (OSError, ValueError):
+            break
+        if r:
+            try:
+                chunk = os.read(master_fd, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            output_chunks.append(chunk)
+            buf += chunk
+            if len(buf) > 8192:
+                buf = buf[-4096:]
+            text = buf.decode("utf-8", errors="replace")
+            if not creds_sent["apple_id"] and "Apple ID:" in text:
+                os.write(master_fd, (apple_id_str + "\n").encode())
+                creds_sent["apple_id"] = True
+                buf = b""
+            elif not creds_sent["password"] and "Password:" in text:
+                os.write(master_fd, (password_str + "\n").encode())
+                creds_sent["password"] = True
+                buf = b""
+        if proc.poll() is not None:
+            try:
+                while True:
+                    chunk = os.read(master_fd, 4096)
+                    if not chunk:
+                        break
+                    output_chunks.append(chunk)
+            except OSError:
+                pass
+            break
+    try:
+        os.close(master_fd)
+    except OSError:
+        pass
+    proc.wait()
+    return proc.returncode, b"".join(output_chunks).decode("utf-8", errors="replace")
+
+def sideloader_revoke_existing_cert(apple_id_str, password_str):
+    """List and revoke the existing iOS Development certificate. Returns (ok, message)."""
+    import re
+    rc, output = sideloader_run_interactive_capture(
+        [SIDELOADER_BIN, "cert", "list", "-i"], apple_id_str, password_str
+    )
+    # Strip ANSI escape codes before parsing
+    output_plain = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+    serial_match = (
+        re.search(r'serial number\s+`([0-9A-Fa-f]{8,})`', output_plain)
+        or re.search(r'[Ss]erial[^:\n]*:\s*([0-9A-Fa-f]{8,})', output_plain)
+    )
+    if not serial_match:
+        return False, f"Could not find a certificate serial number in:\n{output_plain[:500]}"
+    serial = serial_match.group(1)
+    rc2, out2 = sideloader_run_interactive_capture(
+        [SIDELOADER_BIN, "cert", "revoke", "-i", serial], apple_id_str, password_str
+    )
+    if rc2 != 0:
+        return False, f"Revoke failed (rc={rc2}):\n{out2[:500]}"
+    return True, f"Revoked certificate {serial}"
+
+def sideloader_start_install(ipa_path, apple_id, password):
+    """Start `sideloader install -i <ipa>` over a pty in a background thread.
+    Auto-feed the Apple ID and password prompts; tee everything to log.txt for
+    install_process() to poll for state transitions."""
+    global _sideloader_proc, _sideloader_master_fd, _sideloader_suppress_exit_marker
+    if not (os.path.isfile(SIDELOADER_BIN) and os.access(SIDELOADER_BIN, os.X_OK)):
+        with open(_sideloader_log_path, "w") as f:
+            f.write("Could not find sideloader binary at " + SIDELOADER_BIN + "\n")
+        return
+
+    _sideloader_suppress_exit_marker = False
+    # Truncate the log
+    open(_sideloader_log_path, "w").close()
+
+    master_fd, slave_fd = pty.openpty()
+    _sideloader_master_fd = master_fd
+    env = os.environ.copy()
+    env["TERM"] = "dumb"
+    _sideloader_proc = subprocess.Popen(
+        [SIDELOADER_BIN, "install", "-i", ipa_path],
+        stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+        close_fds=True, env=env, preexec_fn=os.setsid,
+    )
+    os.close(slave_fd)
+
+    def reader():
+        creds_sent = {"apple_id": False, "password": False}
+        buf = b""
+        with open(_sideloader_log_path, "ab", buffering=0) as logf:
+            while True:
+                try:
+                    r, _, _ = select.select([master_fd], [], [], 0.2)
+                except (OSError, ValueError):
+                    break
+                if r:
+                    try:
+                        chunk = os.read(master_fd, 4096)
+                    except OSError:
+                        chunk = b""  # EIO: pty slave closed, treat as EOF
+                    if not chunk:
+                        break
+                    logf.write(chunk)
+                    buf += chunk
+                    # Keep only the tail to keep prompt matching cheap
+                    if len(buf) > 8192:
+                        buf = buf[-4096:]
+                    text = buf.decode("utf-8", errors="replace")
+                    if not creds_sent["apple_id"] and "Apple ID:" in text:
+                        sideloader_send(apple_id)
+                        creds_sent["apple_id"] = True
+                        buf = b""
+                    elif not creds_sent["password"] and "Password:" in text:
+                        sideloader_send(password)
+                        creds_sent["password"] = True
+                        buf = b""
+                if _sideloader_proc.poll() is not None:
+                    # Drain anything left
+                    try:
+                        while True:
+                            chunk = os.read(master_fd, 4096)
+                            if not chunk: break
+                            logf.write(chunk)
+                    except OSError:
+                        pass
+                    break
+            # Write exit marker for every exit path, unless this install was
+            # explicitly cancelled (e.g. to revoke-and-retry).
+            if not _sideloader_suppress_exit_marker:
+                _sideloader_proc.wait()
+                rc = _sideloader_proc.returncode
+                logf.write(f"\n[althea] sideloader exited rc={rc}\n".encode())
+                if rc == 0:
+                    logf.write(b"Notify: Installation Succeeded\n")
+                else:
+                    logf.write(b"Could not install via sideloader\n")
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+
+    threading.Thread(target=reader, daemon=True).start()
+# ------------------------------------------------------------------------------
+
+# --- iOS 17+ re-sign + reinstall path -----------------------------------------
+# AltServer-Linux's signer omits/mis-formats the DER-encoded entitlements blob
+# that XNU now requires; amfid accepts it but posix_spawn rejects with EBADEXEC
+# (POSIX 85, "Bad executable"). We re-sign AltServer's freshly-built IPA with
+# zsign (which writes a SHA-256-only CodeDirectory + valid DER entitlements)
+# and re-install via pymobiledevice3, which overwrites the broken install.
+ALTHEA_TMPDIR = "/tmp/althea_altserver_tmp"
+ALTHEA_CAPTURE_STOP = threading.Event()
+
+def _altserver_tmp_watcher():
+    """Poll /tmp for AltServer's UUID-named temp dir containing a .app with
+    embedded.mobileprovision and copy a snapshot to ALTHEA_TMPDIR before
+    AltServer cleans up."""
+    import re, glob, shutil
+    uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    while not ALTHEA_CAPTURE_STOP.is_set():
+        try:
+            for entry in os.listdir("/tmp"):
+                if not uuid_re.match(entry):
+                    continue
+                src_root = os.path.join("/tmp", entry)
+                if not os.path.isdir(src_root):
+                    continue
+                for app_dir in glob.glob(os.path.join(src_root, "*.app")):
+                    prov = os.path.join(app_dir, "embedded.mobileprovision")
+                    if not os.path.isfile(prov):
+                        continue
+                    dst = os.path.join(ALTHEA_TMPDIR, os.path.basename(app_dir))
+                    if os.path.isdir(dst):
+                        continue  # already captured
+                    try:
+                        shutil.copytree(app_dir, dst)
+                        print(f"[althea] captured AltServer staged app -> {dst}")
+                    except Exception as e:
+                        print(f"[althea] capture failed: {e}")
+        except Exception:
+            pass
+        ALTHEA_CAPTURE_STOP.wait(0.1)
+
+def find_zsign():
+    for p in ("/home/linuxbrew/.linuxbrew/bin/zsign", "/usr/local/bin/zsign", "/usr/bin/zsign"):
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return p
+    from shutil import which
+    return which("zsign")
+
+def find_pymobiledevice3():
+    from shutil import which
+    p = which("pymobiledevice3") or os.path.expanduser("~/.local/bin/pymobiledevice3")
+    return p if os.path.isfile(p) else None
+
+def find_altserver_p12():
+    cert_dir = os.path.expanduser("~/.altserver/Certificates")
+    if not os.path.isdir(cert_dir):
+        return None
+    p12s = sorted(
+        (os.path.join(cert_dir, f) for f in os.listdir(cert_dir) if f.endswith(".p12")),
+        key=os.path.getmtime,
+        reverse=True,
+    )
+    return p12s[0] if p12s else None
+
+def find_captured_altserver_artifacts():
+    """Look in ALTHEA_TMPDIR for the .app folder AltServer just built."""
+    if not os.path.isdir(ALTHEA_TMPDIR):
+        return None, None
+    for root, dirs, files in os.walk(ALTHEA_TMPDIR):
+        for d in dirs:
+            if d.endswith(".app"):
+                app_path = os.path.join(root, d)
+                prov = os.path.join(app_path, "embedded.mobileprovision")
+                if os.path.isfile(prov):
+                    return app_path, prov
+    return None, None
+
+def zsign_resign_and_install(status_cb=lambda s: None):
+    """Returns (ok: bool, message: str)."""
+    zsign = find_zsign()
+    pmd3 = find_pymobiledevice3()
+    cert = find_altserver_p12()
+    app_path, prov = find_captured_altserver_artifacts()
+
+    if not zsign:
+        return False, "zsign not found in PATH"
+    if not pmd3:
+        return False, "pymobiledevice3 not found (pip3 install --user pymobiledevice3)"
+    if not cert:
+        return False, "AltServer cert (~/.altserver/Certificates/*.p12) not found"
+    if not app_path or not prov:
+        return False, f"Could not find AltServer's staged .app under {ALTHEA_TMPDIR}"
+
+    out_ipa = "/tmp/althea_resigned.ipa"
+    silent_remove(out_ipa)
+
+    status_cb("Re-signing with zsign (iOS 17+ CodeDirectory)...")
+    res = subprocess.run(
+        [zsign, "-f", "-2", "-z", "5",
+         "-k", cert, "-p", "",
+         "-m", prov,
+         "-o", out_ipa,
+         app_path],
+        capture_output=True, text=True,
+    )
+    if res.returncode != 0 or not os.path.isfile(out_ipa):
+        return False, f"zsign failed (rc={res.returncode}):\n{res.stdout}\n{res.stderr}"
+
+    status_cb("Installing re-signed IPA via pymobiledevice3...")
+    res = subprocess.run(
+        [pmd3, "apps", "install", out_ipa],
+        capture_output=True, text=True,
+    )
+    if res.returncode != 0:
+        return False, f"pymobiledevice3 install failed (rc={res.returncode}):\n{res.stdout}\n{res.stderr}"
+
+    return True, "Re-signed and reinstalled"
+# ------------------------------------------------------------------------------
+
 def menu():
     menu = Gtk.Menu()
 
@@ -124,7 +473,7 @@ def menu():
             f"test -e $HOME/.config/autostart/althea.desktop", shell=True
         )
         if CheckRun12.returncode == 0:
-            command_six.set_active(command_six)
+            command_six.set_active(True)
         command_six.connect("activate", launchatlogin1)
         menu.append(Gtk.SeparatorMenuItem())
         menu.append(command_six)
@@ -409,9 +758,34 @@ class SplashScreen(Handy.Window):
             global indicator
             indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
             self.t.join()
-            self.destroy()
+            self.show_main_ui()
         else:
             GLib.timeout_add(200, self.wait_for_t, self.t)
+
+    def show_main_ui(self):
+        # Replace the loading widgets with action buttons so the app
+        # is usable even when the AppIndicator tray isn't visible.
+        self.set_title("althea")
+        self.lbl1.destroy()
+        self.loadalthea.destroy()
+
+        actions = [
+            ("About althea", on_abtdlg),
+            ("Install AltStore", altstoreinstall),
+            ("Install an IPA file", altserverfile),
+            ("Pair", lambda x: openwindow(PairWindow)),
+            ("Restart AltServer", restart_altserver),
+            ("Quit althea", lambda x: quitit()),
+        ]
+        for label, callback in actions:
+            btn = Gtk.Button(label=label)
+            btn.set_property("margin_left", 40)
+            btn.set_property("margin_right", 40)
+            btn.connect("clicked", callback)
+            self.mainBox.pack_start(btn, False, False, 2)
+
+        self.connect("destroy", lambda *_: quitit())
+        self.show_all()
 
     def download_bin(self, name, link):
         match computer_cpu_platform:
@@ -484,7 +858,7 @@ class SplashScreen(Handy.Window):
             else:
                 sleep(1)
         if not os.path.isfile(f"{(altheapath)}/AltServer"):
-            self.download_bin("AltServer", "https://github.com/NyaMisty/AltServer-Linux/releases/download/v0.0.5/AltServer")
+            self.download_bin("AltServer", "https://github.com/datspike/AltServer-Linux/releases/download/v0.1.1/AltServer")
             self.lbl1.set_text("Downloading AltServer...")
             self.loadalthea.set_fraction(0.6)
         self.loadalthea.set_fraction(0.8)
@@ -497,8 +871,14 @@ class SplashScreen(Handy.Window):
                 self.lbl1.set_text("Downloading new version of AltStore...")
                 altstore_download("Download")
         self.lbl1.set_text("Starting AltServer...")
-        self.loadalthea.set_fraction(1.0)
+        self.loadalthea.set_fraction(0.95)
         subprocess.run(f"{export_anisette} ; {(altheapath)}/AltServer &", shell=True)
+        # Download Sideloader (Dadoum) — the modern signer used by althea's
+        # "Install" path, since AltServer-Linux signatures are rejected by iOS 17+.
+        if not (os.path.isfile(SIDELOADER_BIN) and os.access(SIDELOADER_BIN, os.X_OK)):
+            self.lbl1.set_text("Downloading Sideloader...")
+            download_sideloader()
+        self.loadalthea.set_fraction(1.0)
         return 0
 
 
@@ -539,6 +919,7 @@ class Login(Gtk.Window):
         silent_remove(f"{(altheapath)}/log.txt")
 
     def on_click_me_clicked1(self):
+        self.hide()
         self.realthread1 = threading.Thread(target=self.onclickmethread)
         self.realthread1.start()
         GLib.idle_add(self.install_process)
@@ -583,21 +964,13 @@ class Login(Gtk.Window):
             if not savedcheck:
                 apple_id = self.entry1.get_text().lower()
                 password = self.entry.get_text()
-            UDID = subprocess.check_output("idevice_id -l", shell=True).decode().strip()
-            global InsAltStore
             print(PATH)
             silent_remove(f"{(altheapath)}/log.txt")
-            #f = open(f"{(altheapath)}/log.txt", "w")
-            #f.close()
-            if os.path.isdir(f'{ os.environ["HOME"] }/.adi'):
-                rmtree(f'{ os.environ["HOME"] }/.adi')
-            InsAltStoreCMD = f"""{export_anisette} ; {(AltServer)} -u {UDID} -a {apple_id} -p \"{password}\" {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
-            InsAltStore = subprocess.Popen(
-                InsAltStoreCMD,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                shell=True,
-            )
+            # Hand off to Dadoum's Sideloader (drives prompts via pty).
+            # Resolve the IPA path: althea uses literal "$HOME/..." in PATH for
+            # the AltStore.ipa case; expand env vars so sideloader gets a real path.
+            ipa_resolved = os.path.expandvars(PATH)
+            sideloader_start_install(ipa_resolved, apple_id, password)
         else:
             global Failmsg
             Failmsg = "iOS 15.0 or later is required."
@@ -607,86 +980,99 @@ class Login(Gtk.Window):
             self.destroy()
 
     def install_process(self):
-        Installing = True
-        WarnTime = 0
-        TwoFactorTime = 0
-        global InsAltStore
-        while Installing:
-            CheckIns = subprocess.run(
-                f'grep -F "Could not" {(altheapath)}/log.txt', shell=True
+        # Bootstrap state and switch to the timeout-driven step (so the GTK
+        # main loop stays responsive while sideloader runs).
+        self._install_two_factor_done = False
+        self._install_log = f"{(altheapath)}/log.txt"
+        if not os.path.exists(self._install_log):
+            open(self._install_log, "a").close()
+        GLib.timeout_add(250, self._install_step)
+        return False  # don't reschedule from idle_add
+
+    def _install_step(self):
+        log_path = self._install_log
+
+        # Handle "existing certificate" error (7460) before the generic failure check.
+        Check7460 = subprocess.run(
+            f'grep -F "statusCode = 7460" {log_path} 2>/dev/null', shell=True
+        )
+        if Check7460.returncode == 0 and not getattr(self, '_cert_revoke_attempted', False):
+            sideloader_terminate()
+            self._cert_revoke_attempted = True
+            dialog = Gtk.MessageDialog(
+                transient_for=self,
+                flags=0,
+                message_type=Gtk.MessageType.QUESTION,
+                buttons=Gtk.ButtonsType.YES_NO,
+                text="Existing iOS Development certificate found",
             )
-            CheckWarn = subprocess.run(
-                f'grep -F "Are you sure you want to continue?" {(altheapath)}/log.txt',
-                shell=True,
+            dialog.format_secondary_text(
+                "Your Apple ID already has an iOS Development certificate.\n"
+                "Do you want to revoke it and retry the installation?"
             )
-            CheckSuccess = subprocess.run(
-                f'grep -F "Notify: Installation Succeeded" {(altheapath)}/log.txt',
-                shell=True,
-            )
-            Check2fa = subprocess.run(
-                f'grep -F "Enter two factor code" {(altheapath)}/log.txt', shell=True
-            )
-            if CheckIns.returncode == 0:
-                InsAltStore.terminate()
-                Installing = False
-                global Failmsg
-                Failmsg = subprocess.check_output(
-                    f"tail -6 {(altheapath)}/log.txt", shell=True
-                ).decode()
-                dialog2 = FailDialog(self)
-                dialog2.run()
-                dialog2.destroy()
-                self.destroy()
-            elif CheckWarn.returncode == 0 and WarnTime == 0:
-                Installing = False
-                word = "Are you sure you want to continue?"
-                # This fixes an issue where the warn window appears when it shouldn't
-                with open(f"{(altheapath)}/log.txt", "r") as file:
-                    # Read all content of the file
-                    content = file.read()
-                    # Check if a string present in the file
-                    if word in content:
-                        global Warnmsg
-                        Warnmsg = subprocess.check_output(
-                            f"tail -8 {('$HOME/.local/share/althea/log.txt')}",
-                            shell=True,
-                        ).decode()
-                        dialog1 = WarningDialog(self)
-                        response1 = dialog1.run()
-                        if response1 == Gtk.ResponseType.OK:
-                            dialog1.destroy()
-                            InsAltStore.communicate(input=b"\n")
-                            WarnTime = 1
-                            Installing = True
-                        elif response1 == Gtk.ResponseType.CANCEL:
-                            dialog1.destroy()
-                            os.system(f"pkill -TERM -P {InsAltStore.pid}")
-                            self.cancel()
+            response = dialog.run()
+            dialog.destroy()
+            if response == Gtk.ResponseType.YES:
+                open(_sideloader_log_path, "w").close()
+                def revoke_and_retry():
+                    ok, msg = sideloader_revoke_existing_cert(apple_id, password)
+                    if ok:
+                        open(_sideloader_log_path, "w").close()
+                        ipa_resolved = os.path.expandvars(PATH)
+                        sideloader_start_install(ipa_resolved, apple_id, password)
                     else:
-                        WarnTime = 1
-                        Installing = True
-            elif Check2fa.returncode == 0 and TwoFactorTime == 0:
-                Installing = False
-                dialog = VerificationDialog(self)
-                response = dialog.run()
-                if response == Gtk.ResponseType.OK:
-                    vercode = dialog.entry2.get_text()
-                    vercode = vercode + "\n"
-                    vercodebytes = bytes(vercode.encode())
-                    InsAltStore.communicate(input=vercodebytes)
-                    TwoFactorTime = 1
-                    dialog.destroy()
-                    Installing = True
-                elif response == Gtk.ResponseType.CANCEL:
-                    TwoFactorTime = 1
-                    os.system(f"pkill -TERM -P {InsAltStore.pid}")
-                    self.cancel()
-                    dialog.destroy()
-                    self.destroy()
-            elif CheckSuccess.returncode == 0:
-                Installing = False
-                self.success()
+                        with open(_sideloader_log_path, "a") as f:
+                            f.write(f"Could not revoke certificate: {msg}\n")
+                    GLib.idle_add(self.install_process)
+                threading.Thread(target=revoke_and_retry, daemon=True).start()
+            else:
+                self.cancel()
                 self.destroy()
+            return False
+
+        CheckIns = subprocess.run(
+            f'grep -F "Could not" {log_path} 2>/dev/null', shell=True
+        )
+        CheckSuccess = subprocess.run(
+            f'grep -F "Notify: Installation Succeeded" {log_path} 2>/dev/null',
+            shell=True,
+        )
+        Check2fa = subprocess.run(
+            f'grep -F "code has been sent to your devices" {log_path} 2>/dev/null',
+            shell=True,
+        )
+
+        if CheckIns.returncode == 0:
+            sideloader_terminate()
+            global Failmsg
+            Failmsg = subprocess.check_output(
+                f"tail -10 {log_path}", shell=True
+            ).decode()
+            dialog2 = FailDialog(self)
+            dialog2.run()
+            dialog2.destroy()
+            self.destroy()
+            return False  # stop polling
+        if Check2fa.returncode == 0 and not self._install_two_factor_done:
+            self._install_two_factor_done = True
+            dialog = VerificationDialog(self)
+            response = dialog.run()
+            if response == Gtk.ResponseType.OK:
+                vercode = dialog.entry2.get_text()
+                sideloader_send(vercode)
+                dialog.destroy()
+                return True  # keep polling
+            else:
+                sideloader_terminate()
+                self.cancel()
+                dialog.destroy()
+                self.destroy()
+                return False
+        if CheckSuccess.returncode == 0:
+            self.success()
+            self.destroy()
+            return False
+        return True  # keep polling
 
     def success(self):
         dialog = Gtk.MessageDialog(
@@ -773,9 +1159,6 @@ class PairWindow(Handy.Window):
         button.set_property("margin_left", 150)
         button.set_property("margin_right", 150)
         self.hbox.pack_start(button, False, False, 10)
-
-        self.add(button)
-        self.add(self.hbox)
 
     def on_info_clicked(self, widget):
         try:
@@ -957,7 +1340,6 @@ class Oops(Handy.Window):
         # WindowHandle
         handle = Handy.WindowHandle()
         self.add(handle)
-        box = Gtk.VBox()
         vb = Gtk.VBox(spacing=0, orientation=Gtk.Orientation.VERTICAL)
 
         # Headerbar
@@ -989,8 +1371,6 @@ class Oops(Handy.Window):
         handle.add(vb)
         vb.pack_start(lbl1, expand=False, fill=True, padding=0)
         vb.pack_start(button, False, False, 10)
-        box.add(vb)
-        self.add(box)
         self.show_all()
 
     def on_info_clicked2(self, widget):
@@ -1008,7 +1388,6 @@ class SettingsWindow(Handy.Window):
         # WindowHandle
         handle = Handy.WindowHandle()
         self.add(handle)
-        box = Gtk.VBox()
         vb = Gtk.VBox(spacing=0, orientation=Gtk.Orientation.VERTICAL)
 
         # Headerbar
@@ -1048,8 +1427,6 @@ class SettingsWindow(Handy.Window):
         vb.pack_start(lbl1, expand=False, fill=True, padding=0)
         vb.pack_start(button, False, False, 10)
         vb.pack_start(button1, False, False, 10)
-        box.add(vb)
-        self.add(box)
         self.show_all()
 
     def on_info_clicked2(self, widget):
@@ -1068,30 +1445,21 @@ def main():
     #global file_name
     if not os.path.exists(altheapath):  # Creates $HOME/.local/share/althea
         os.mkdir(altheapath)
-    if Gtk.StatusIcon.is_embedded:
-        if connectioncheck():
-            global indicator
-            indicator = appindicator.Indicator.new(
-                "althea-tray-icon",
-                resource_path("resources/1.png"),
-                appindicator.IndicatorCategory.APPLICATION_STATUS,
-            )
-            indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
-            indicator.set_menu(menu())
-            indicator.set_status(appindicator.IndicatorStatus.PASSIVE)
-            openwindow(SplashScreen)
-        else:
-            markup_text = "althea is unable to connect to the Internet.\nPlease connect to the Internet and restart althea."
-            pixbuf_icon = "network-wireless-no-route-symbolic"
-            Oops(markup_text, pixbuf_icon)  # Notify the user there is no Internet connection
-    else:
-        markup_text = (
-            "You don't have the AppIndicator extension installed.\n"
-            'You can download it on <a href="https://extensions.gnome.org/extension/615/appindicator-support/" '
-            'title="GNOME Extensions">GNOME Extensions</a>.'
+    if connectioncheck():
+        global indicator
+        indicator = appindicator.Indicator.new(
+            "althea-tray-icon",
+            resource_path("resources/1.png"),
+            appindicator.IndicatorCategory.APPLICATION_STATUS,
         )
-        pixbuf_icon = "application-x-addon-symbolic"
-        Oops(markup_text, pixbuf_icon)  # Notify the user the tray icons aren't installed
+        indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
+        indicator.set_menu(menu())
+        indicator.set_status(appindicator.IndicatorStatus.PASSIVE)
+        openwindow(SplashScreen)
+    else:
+        markup_text = "althea is unable to connect to the Internet.\nPlease connect to the Internet and restart althea."
+        pixbuf_icon = "network-wireless-no-route-symbolic"
+        Oops(markup_text, pixbuf_icon)  # Notify the user there is no Internet connection
     Handy.init()
     Gtk.main()
 
