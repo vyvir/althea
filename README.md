@@ -5,6 +5,8 @@ althea is a GUI for AltServer-Linux that allows to easily sideload apps onto an 
 
 This app is in a very early state, so if you're experiencing issues or want to help, you can create a [pull request](https://github.com/vyvir/althea/pulls), [report an issue](https://github.com/vyvir/althea/issues), or join [the Discord server](https://discord.gg/DZwRbyXq5Z).
 
+[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/vyvir)
+
 ## Instructions
 
 ### Dependencies
