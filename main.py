@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import os
 import errno
-from shutil import rmtree
+from shutil import rmtree, which
 import json
 import urllib.request
 from urllib.request import urlopen
@@ -608,16 +608,24 @@ class Login(Gtk.Window):
             global InsAltStore
             print(PATH)
             silent_remove(f"{(altheapath)}/log.txt")
-            #f = open(f"{(altheapath)}/log.txt", "w")
-            #f.close()
             if os.path.isdir(os.path.join(home_dir, ".adi")):
                 rmtree(os.path.join(home_dir, ".adi"))
-            InsAltStoreCMD = f"""{export_anisette} ; {(AltServer)} -u {UDID} -a {apple_id} -p \"{password}\" {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
+            env = dict(os.environ, ALTSERVER_ANISETTE_SERVER="http://127.0.0.1:6969")
+            log_file = open(f"{(altheapath)}/log.txt", "wb")
+            # No shell: credentials/paths with spaces or shell metacharacters
+            # must not be interpolated into a command string.
+            launch_cmd = [AltServer, "-u", UDID, "-a", apple_id, "-p", password, PATH]
+            if which("stdbuf") is not None:
+                # Line-buffer AltServer's output so 2FA/warning prompts reach
+                # log.txt promptly; fall back gracefully where coreutils'
+                # stdbuf is unavailable.
+                launch_cmd = ["stdbuf", "-oL", "-eL"] + launch_cmd
             InsAltStore = subprocess.Popen(
-                InsAltStoreCMD,
+                launch_cmd,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                shell=True,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                env=env,
             )
         else:
             global Failmsg
