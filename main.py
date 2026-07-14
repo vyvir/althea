@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import os
 import errno
-from shutil import rmtree
+from shutil import rmtree, which
 import json
 import urllib.request
 from urllib.request import urlopen
@@ -40,18 +40,14 @@ computer_cpu_platform = platform.machine()
 
 def resource_path(relative_path):
     global installedcheck
-    CheckRun10 = subprocess.run(
-        f"find /usr/lib/althea/althea > /dev/null 2>&1", shell=True
-    )
-    if CheckRun10.returncode == 0:
+    installed_path = "/usr/lib/althea/althea"
+    if os.path.exists(installed_path):
         installedcheck = True
         base_path = "/usr/lib/althea"
     else:
-        base_path = os.path.abspath(".")
+        installedcheck = False
+        base_path = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(base_path, relative_path)
-
-    installedcheck = subprocess.run("test -e /usr/lib/althea/althea", shell=True).returncode == 0
-    base_path = "/usr/lib/althea" if installedcheck else os.path.abspath(".")
 
 
 # Global variables
@@ -67,15 +63,16 @@ Warnmsg = "warn"
 Failmsg = "fail"
 icon_name = "changes-prevent-symbolic"
 command_six = Gtk.CheckMenuItem(label="Launch at Login")
-AltServer = "$HOME/.local/share/althea/AltServer"
-AnisetteServer = "$HOME/.local/share/althea/anisette-server"
-AltStore = "$HOME/.local/share/althea/AltStore.ipa"
-PATH = AltStore
-AutoStart = resource_path("resources/AutoStart.sh")
+home_dir = os.path.expanduser("~") or os.environ.get("HOME", "")
 altheapath = os.path.join(
-    os.environ.get("XDG_DATA_HOME") or f'{ os.environ["HOME"] }/.local/share',
+    os.environ.get("XDG_DATA_HOME") or os.path.join(home_dir, ".local", "share"),
     "althea",
 )
+AltServer = os.path.join(altheapath, "AltServer")
+AnisetteServer = os.path.join(altheapath, "anisette-server")
+AltStore = os.path.join(altheapath, "AltStore.ipa")
+PATH = AltStore
+AutoStart = resource_path("resources/AutoStart.sh")
 export_anisette = "export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969'"
 
 # Check version
@@ -124,7 +121,7 @@ def menu():
             f"test -e $HOME/.config/autostart/althea.desktop", shell=True
         )
         if CheckRun12.returncode == 0:
-            command_six.set_active(command_six)
+            command_six.set_active(True)
         command_six.connect("activate", launchatlogin1)
         menu.append(Gtk.SeparatorMenuItem())
         menu.append(command_six)
@@ -168,9 +165,18 @@ def paircheck():  # Check if the device is paired already
         return True
 
 def altstoreinstall(_):
-    if version.parse(ios_version()) < version.parse("15.0"):
+    ios_ver = parse_ios_version()
+    if ios_ver is None:
+        global Failmsg
+        Failmsg = "Could not read the iOS version.\nMake sure your device is connected and unlocked."
+        fail_dialog = FailDialog(parent=None)
+        fail_dialog.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        fail_dialog.run()
+        fail_dialog.destroy()
+        return
+    if ios_ver < version.parse("15.0"):
         global Warnmsg
-        Warnmsg = f"""\niOS {ios_version()} is not supported by AltStore.\nThe lowest supported version is iOS 15.0.\nYou can still continue, but errors may occur.\n"""
+        Warnmsg = f"""\niOS {ios_ver} is not supported by AltStore.\nThe lowest supported version is iOS 15.0.\nYou can still continue, but errors may occur.\n"""
         ios_dialog = WarningDialog(parent=None)
         ios_dialog.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         ios_response = ios_dialog.run()
@@ -205,15 +211,20 @@ def altserverfile(_):
 
 def notify():
     if (connectioncheck()) == True:
-        LatestVersion = (
-            urllib.request.urlopen(
-                "https://raw.githubusercontent.com/vyvir/althea/main/resources/version"
+        try:
+            LatestVersion = (
+                urllib.request.urlopen(
+                    "https://raw.githubusercontent.com/vyvir/althea/main/resources/version",
+                    timeout=10,
+                )
+                .readline()
+                .rstrip()
+                .decode()
             )
-            .readline()
-            .rstrip()
-            .decode()
-        )
-        if LatestVersion > LocalVersion:
+            update_available = version.parse(LatestVersion) > version.parse(LocalVersion)
+        except (OSError, version.InvalidVersion):
+            return False
+        if update_available:
             Notify.init("MyProgram")
             n = Notify.Notification.new(
                 "An update is available!",
@@ -322,34 +333,53 @@ def silent_remove(filename):
         if e.errno != errno.ENOENT:  # errno.ENOENT = no such file or directory
             raise  # re-raise exception if a different error occurred
 
+
+def read_install_log(log_path):
+    if not os.path.exists(log_path):
+        return ""
+    with open(log_path, "r", encoding="utf-8", errors="replace") as handle:
+        return handle.read()
+
+
+# The AltStore feed lists two apps both named "AltStore" (the stable app and
+# a separate beta published under com.rileytestut.AltStore.Beta), so match on
+# bundleIdentifier rather than name to avoid depending on feed ordering.
+ALTSTORE_BUNDLE_ID = "com.rileytestut.AltStore"
+
+
 def altstore_download(value):
-    # setting the base URL value
     baseUrl = "https://cdn.altstore.io/file/altstore/apps.json"
 
-    # retrieving data from JSON Data
-    json_data = requests.get(baseUrl)
-    if json_data.status_code == 200:
-        data = json_data.json()
-        for app in data['apps']:
-            if app['name'] == "AltStore":
+    try:
+        json_data = requests.get(baseUrl, timeout=30)
+    except requests.RequestException:
+        return False
+    if json_data.status_code != 200:
+        return False
+    data = json_data.json()
+    for app in data['apps']:
+        if app.get('bundleIdentifier') == ALTSTORE_BUNDLE_ID:
+            for ver_entry in app['versions']:
+                latest = ver_entry.get('downloadURL', '')
+                if not latest.endswith('.ipa'):
+                    continue  # skip Patreon-gated entries (no direct .ipa)
+                ipa_path = f'{(altheapath)}/AltStore.ipa'
                 if value == "Check":
-                    size = app['versions'][0]['size']
-                    return size == os.path.getsize(f'{(altheapath)}/AltStore.ipa')
-                    break
+                    if not os.path.isfile(ipa_path):
+                        return False
+                    return ver_entry['size'] == os.path.getsize(ipa_path)
                 if value == "Download":
-                    latest = app['versions'][0]['downloadURL']
-                    r = requests.get(
-                        latest,
-                        allow_redirects=True,
-                    )
+                    try:
+                        r = requests.get(latest, allow_redirects=True, timeout=600)
+                        r.raise_for_status()
+                    except requests.RequestException:
+                        return False
                     latest_filename = latest.split('/')[-1]
                     open(f"{(altheapath)}/{(latest_filename)}", "wb").write(r.content)
-                    os.rename(f"{(altheapath)}/{(latest_filename)}", f"{(altheapath)}/AltStore.ipa")
-                    subprocess.run(f"chmod 755 {(altheapath)}/AltStore.ipa", shell=True)
-                    break
-        return True
-    else:
-        return False
+                    os.replace(f"{(altheapath)}/{(latest_filename)}", ipa_path)
+                    return True
+            return False
+    return False
 
 def ios_version():
     silent_remove(f"{(altheapath)}/ideviceinfo.txt")
@@ -367,6 +397,15 @@ def ios_version():
     silent_remove(f"{(altheapath)}/ideviceinfo.txt")
     print(result)
     return(result)
+
+
+def parse_ios_version():
+    # Returns None when no device is connected or ideviceinfo output
+    # could not be parsed, instead of crashing on version.parse("result").
+    try:
+        return version.parse(ios_version())
+    except version.InvalidVersion:
+        return None
 
 # Classes
 class SplashScreen(Handy.Window):
@@ -459,7 +498,7 @@ class SplashScreen(Handy.Window):
                 allow_redirects=True,
             )
             open(f"{(altheapath)}/am.apk", "wb").write(r.content)
-            os.makedirs(f"{(altheapath)}/lib/x86_64")
+            os.makedirs(f"{(altheapath)}/lib/x86_64", exist_ok=True)
             self.loadalthea.set_fraction(0.3)
             self.lbl1.set_text("Extracting necessary libraries...")
             CheckRunB = subprocess.run(
@@ -472,9 +511,9 @@ class SplashScreen(Handy.Window):
             )
             silent_remove(f"{(altheapath)}/am.apk")
             self.loadalthea.set_fraction(0.4)
-        self.lbl1.set_text("Starting anisette-server...")
-        subprocess.run(f"{(altheapath)}/anisette-server -n 127.0.0.1 -p 6969 &", shell=True)
-        #subprocess.run(f"cd {(altheapath)} && ./anisette-server &", shell=True)#-n 127.0.0.1 -p 6969 &", shell=True
+        if CheckRun.returncode != 0:
+            self.lbl1.set_text("Starting anisette-server...")
+            subprocess.run(f"{(altheapath)}/anisette-server -n 127.0.0.1 -p 6969 &", shell=True)
         self.loadalthea.set_fraction(0.5)
         finished = False
         while not finished:
@@ -541,7 +580,13 @@ class Login(Gtk.Window):
     def on_click_me_clicked1(self):
         self.realthread1 = threading.Thread(target=self.onclickmethread)
         self.realthread1.start()
-        GLib.idle_add(self.install_process)
+        self.start_install_monitor()
+
+    def start_install_monitor(self):
+        self.WarnTime = 0
+        self.TwoFactorTime = 0
+        self.monitor_stopped = False
+        GLib.timeout_add(200, self.install_process)
 
     def on_click_me_clicked(self, button):
         silent_remove(f"{(altheapath)}/log.txt")
@@ -573,10 +618,11 @@ class Login(Gtk.Window):
         self.button.set_sensitive(False)
         self.realthread1 = threading.Thread(target=self.onclickmethread)
         self.realthread1.start()
-        GLib.idle_add(self.install_process)
+        self.start_install_monitor()
 
     def onclickmethread(self):
-        if ios_version() >= "15.0":
+        ios_ver = parse_ios_version()
+        if ios_ver is not None and ios_ver >= version.parse("15.0"):
             global savedcheck
             global apple_id
             global password
@@ -587,106 +633,101 @@ class Login(Gtk.Window):
             global InsAltStore
             print(PATH)
             silent_remove(f"{(altheapath)}/log.txt")
-            #f = open(f"{(altheapath)}/log.txt", "w")
-            #f.close()
-            if os.path.isdir(f'{ os.environ["HOME"] }/.adi'):
-                rmtree(f'{ os.environ["HOME"] }/.adi')
-            InsAltStoreCMD = f"""{export_anisette} ; {(AltServer)} -u {UDID} -a {apple_id} -p \"{password}\" {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
+            if os.path.isdir(os.path.join(home_dir, ".adi")):
+                rmtree(os.path.join(home_dir, ".adi"))
+            env = dict(os.environ, ALTSERVER_ANISETTE_SERVER="http://127.0.0.1:6969")
+            log_file = open(f"{(altheapath)}/log.txt", "wb")
+            # No shell: credentials/paths with spaces or shell metacharacters
+            # must not be interpolated into a command string.
+            launch_cmd = [AltServer, "-u", UDID, "-a", apple_id, "-p", password, PATH]
+            if which("stdbuf") is not None:
+                # Line-buffer AltServer's output so 2FA/warning prompts reach
+                # log.txt promptly; fall back gracefully where coreutils'
+                # stdbuf is unavailable.
+                launch_cmd = ["stdbuf", "-oL", "-eL"] + launch_cmd
             InsAltStore = subprocess.Popen(
-                InsAltStoreCMD,
+                launch_cmd,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                shell=True,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                env=env,
             )
         else:
             global Failmsg
-            Failmsg = "iOS 15.0 or later is required."
+            if ios_ver is None:
+                Failmsg = "Could not read the iOS version.\nMake sure your device is connected and unlocked."
+            else:
+                Failmsg = "iOS 15.0 or later is required."
+            GLib.idle_add(self.show_fail_and_close)
+
+    def show_fail_and_close(self):
+        # GTK must only be touched from the main thread; worker threads
+        # schedule this via GLib.idle_add.
+        dialog2 = FailDialog(self)
+        dialog2.run()
+        dialog2.destroy()
+        self.monitor_stopped = True
+        self.destroy()
+        return False
+
+    def install_process(self):
+        # GLib.timeout_add callback: return True to keep polling the log,
+        # False to stop. Must never block, or the whole UI freezes.
+        global InsAltStore
+        if self.monitor_stopped:
+            return False
+        content = read_install_log(f"{altheapath}/log.txt")
+        if not content:
+            return True
+
+        if "Could not" in content:
+            InsAltStore.terminate()
+            global Failmsg
+            Failmsg = "\n".join(content.splitlines()[-6:])
             dialog2 = FailDialog(self)
             dialog2.run()
             dialog2.destroy()
             self.destroy()
-
-    def install_process(self):
-        Installing = True
-        WarnTime = 0
-        TwoFactorTime = 0
-        global InsAltStore
-        while Installing:
-            CheckIns = subprocess.run(
-                f'grep -F "Could not" {(altheapath)}/log.txt', shell=True
-            )
-            CheckWarn = subprocess.run(
-                f'grep -F "Are you sure you want to continue?" {(altheapath)}/log.txt',
-                shell=True,
-            )
-            CheckSuccess = subprocess.run(
-                f'grep -F "Notify: Installation Succeeded" {(altheapath)}/log.txt',
-                shell=True,
-            )
-            Check2fa = subprocess.run(
-                f'grep -F "Enter two factor code" {(altheapath)}/log.txt', shell=True
-            )
-            if CheckIns.returncode == 0:
+            return False
+        elif "Are you sure you want to continue?" in content and self.WarnTime == 0:
+            self.WarnTime = 1
+            global Warnmsg
+            Warnmsg = "\n".join(content.splitlines()[-8:])
+            dialog1 = WarningDialog(self)
+            response1 = dialog1.run()
+            dialog1.destroy()
+            if response1 == Gtk.ResponseType.OK:
+                if InsAltStore.stdin is not None:
+                    InsAltStore.stdin.write(b"\n")
+                    InsAltStore.stdin.flush()
+                return True
+            else:
                 InsAltStore.terminate()
-                Installing = False
-                global Failmsg
-                Failmsg = subprocess.check_output(
-                    f"tail -6 {(altheapath)}/log.txt", shell=True
-                ).decode()
-                dialog2 = FailDialog(self)
-                dialog2.run()
-                dialog2.destroy()
+                self.cancel()
                 self.destroy()
-            elif CheckWarn.returncode == 0 and WarnTime == 0:
-                Installing = False
-                word = "Are you sure you want to continue?"
-                # This fixes an issue where the warn window appears when it shouldn't
-                with open(f"{(altheapath)}/log.txt", "r") as file:
-                    # Read all content of the file
-                    content = file.read()
-                    # Check if a string present in the file
-                    if word in content:
-                        global Warnmsg
-                        Warnmsg = subprocess.check_output(
-                            f"tail -8 {('$HOME/.local/share/althea/log.txt')}",
-                            shell=True,
-                        ).decode()
-                        dialog1 = WarningDialog(self)
-                        response1 = dialog1.run()
-                        if response1 == Gtk.ResponseType.OK:
-                            dialog1.destroy()
-                            InsAltStore.communicate(input=b"\n")
-                            WarnTime = 1
-                            Installing = True
-                        elif response1 == Gtk.ResponseType.CANCEL:
-                            dialog1.destroy()
-                            os.system(f"pkill -TERM -P {InsAltStore.pid}")
-                            self.cancel()
-                    else:
-                        WarnTime = 1
-                        Installing = True
-            elif Check2fa.returncode == 0 and TwoFactorTime == 0:
-                Installing = False
-                dialog = VerificationDialog(self)
-                response = dialog.run()
-                if response == Gtk.ResponseType.OK:
-                    vercode = dialog.entry2.get_text()
-                    vercode = vercode + "\n"
-                    vercodebytes = bytes(vercode.encode())
-                    InsAltStore.communicate(input=vercodebytes)
-                    TwoFactorTime = 1
-                    dialog.destroy()
-                    Installing = True
-                elif response == Gtk.ResponseType.CANCEL:
-                    TwoFactorTime = 1
-                    os.system(f"pkill -TERM -P {InsAltStore.pid}")
-                    self.cancel()
-                    dialog.destroy()
-                    self.destroy()
-            elif CheckSuccess.returncode == 0:
-                Installing = False
-                self.success()
+                return False
+        elif "Enter two factor code" in content and self.TwoFactorTime == 0:
+            self.TwoFactorTime = 1
+            dialog = VerificationDialog(self)
+            response = dialog.run()
+            if response == Gtk.ResponseType.OK:
+                vercode = dialog.entry2.get_text() + "\n"
+                if InsAltStore.stdin is not None:
+                    InsAltStore.stdin.write(vercode.encode())
+                    InsAltStore.stdin.flush()
+                dialog.destroy()
+                return True
+            else:
+                dialog.destroy()
+                InsAltStore.terminate()
+                self.cancel()
                 self.destroy()
+                return False
+        elif "Notify: Installation Succeeded" in content:
+            self.success()
+            self.destroy()
+            return False
+        return True
 
     def success(self):
         dialog = Gtk.MessageDialog(
@@ -1066,8 +1107,7 @@ def main():
     GLib.set_prgname("althea")  # Sets the global program name
     global altheapath
     #global file_name
-    if not os.path.exists(altheapath):  # Creates $HOME/.local/share/althea
-        os.mkdir(altheapath)
+    os.makedirs(altheapath, exist_ok=True)
     if Gtk.StatusIcon.is_embedded:
         if connectioncheck():
             global indicator
