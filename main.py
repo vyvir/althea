@@ -333,6 +333,14 @@ def silent_remove(filename):
         if e.errno != errno.ENOENT:  # errno.ENOENT = no such file or directory
             raise  # re-raise exception if a different error occurred
 
+
+def read_install_log(log_path):
+    if not os.path.exists(log_path):
+        return ""
+    with open(log_path, "r", encoding="utf-8", errors="replace") as handle:
+        return handle.read()
+
+
 def altstore_download(value):
     # setting the base URL value
     baseUrl = "https://cdn.altstore.io/file/altstore/apps.json"
@@ -561,7 +569,13 @@ class Login(Gtk.Window):
     def on_click_me_clicked1(self):
         self.realthread1 = threading.Thread(target=self.onclickmethread)
         self.realthread1.start()
-        GLib.idle_add(self.install_process)
+        self.start_install_monitor()
+
+    def start_install_monitor(self):
+        self.WarnTime = 0
+        self.TwoFactorTime = 0
+        self.monitor_stopped = False
+        GLib.timeout_add(200, self.install_process)
 
     def on_click_me_clicked(self, button):
         silent_remove(f"{(altheapath)}/log.txt")
@@ -593,7 +607,7 @@ class Login(Gtk.Window):
         self.button.set_sensitive(False)
         self.realthread1 = threading.Thread(target=self.onclickmethread)
         self.realthread1.start()
-        GLib.idle_add(self.install_process)
+        self.start_install_monitor()
 
     def onclickmethread(self):
         ios_ver = parse_ios_version()
@@ -641,90 +655,68 @@ class Login(Gtk.Window):
         dialog2 = FailDialog(self)
         dialog2.run()
         dialog2.destroy()
+        self.monitor_stopped = True
         self.destroy()
         return False
 
     def install_process(self):
-        Installing = True
-        WarnTime = 0
-        TwoFactorTime = 0
+        # GLib.timeout_add callback: return True to keep polling the log,
+        # False to stop. Must never block, or the whole UI freezes.
         global InsAltStore
-        while Installing:
-            CheckIns = subprocess.run(
-                f'grep -F "Could not" {(altheapath)}/log.txt', shell=True
-            )
-            CheckWarn = subprocess.run(
-                f'grep -F "Are you sure you want to continue?" {(altheapath)}/log.txt',
-                shell=True,
-            )
-            CheckSuccess = subprocess.run(
-                f'grep -F "Notify: Installation Succeeded" {(altheapath)}/log.txt',
-                shell=True,
-            )
-            Check2fa = subprocess.run(
-                f'grep -F "Enter two factor code" {(altheapath)}/log.txt', shell=True
-            )
-            if CheckIns.returncode == 0:
+        if self.monitor_stopped:
+            return False
+        content = read_install_log(f"{altheapath}/log.txt")
+        if not content:
+            return True
+
+        if "Could not" in content:
+            InsAltStore.terminate()
+            global Failmsg
+            Failmsg = "\n".join(content.splitlines()[-6:])
+            dialog2 = FailDialog(self)
+            dialog2.run()
+            dialog2.destroy()
+            self.destroy()
+            return False
+        elif "Are you sure you want to continue?" in content and self.WarnTime == 0:
+            self.WarnTime = 1
+            global Warnmsg
+            Warnmsg = "\n".join(content.splitlines()[-8:])
+            dialog1 = WarningDialog(self)
+            response1 = dialog1.run()
+            dialog1.destroy()
+            if response1 == Gtk.ResponseType.OK:
+                if InsAltStore.stdin is not None:
+                    InsAltStore.stdin.write(b"\n")
+                    InsAltStore.stdin.flush()
+                return True
+            else:
                 InsAltStore.terminate()
-                Installing = False
-                global Failmsg
-                Failmsg = subprocess.check_output(
-                    f"tail -6 {(altheapath)}/log.txt", shell=True
-                ).decode()
-                dialog2 = FailDialog(self)
-                dialog2.run()
-                dialog2.destroy()
+                self.cancel()
                 self.destroy()
-            elif CheckWarn.returncode == 0 and WarnTime == 0:
-                Installing = False
-                word = "Are you sure you want to continue?"
-                # This fixes an issue where the warn window appears when it shouldn't
-                with open(f"{(altheapath)}/log.txt", "r") as file:
-                    # Read all content of the file
-                    content = file.read()
-                    # Check if a string present in the file
-                    if word in content:
-                        global Warnmsg
-                        Warnmsg = subprocess.check_output(
-                            f"tail -8 {('$HOME/.local/share/althea/log.txt')}",
-                            shell=True,
-                        ).decode()
-                        dialog1 = WarningDialog(self)
-                        response1 = dialog1.run()
-                        if response1 == Gtk.ResponseType.OK:
-                            dialog1.destroy()
-                            InsAltStore.communicate(input=b"\n")
-                            WarnTime = 1
-                            Installing = True
-                        elif response1 == Gtk.ResponseType.CANCEL:
-                            dialog1.destroy()
-                            os.system(f"pkill -TERM -P {InsAltStore.pid}")
-                            self.cancel()
-                    else:
-                        WarnTime = 1
-                        Installing = True
-            elif Check2fa.returncode == 0 and TwoFactorTime == 0:
-                Installing = False
-                dialog = VerificationDialog(self)
-                response = dialog.run()
-                if response == Gtk.ResponseType.OK:
-                    vercode = dialog.entry2.get_text()
-                    vercode = vercode + "\n"
-                    vercodebytes = bytes(vercode.encode())
-                    InsAltStore.communicate(input=vercodebytes)
-                    TwoFactorTime = 1
-                    dialog.destroy()
-                    Installing = True
-                elif response == Gtk.ResponseType.CANCEL:
-                    TwoFactorTime = 1
-                    os.system(f"pkill -TERM -P {InsAltStore.pid}")
-                    self.cancel()
-                    dialog.destroy()
-                    self.destroy()
-            elif CheckSuccess.returncode == 0:
-                Installing = False
-                self.success()
+                return False
+        elif "Enter two factor code" in content and self.TwoFactorTime == 0:
+            self.TwoFactorTime = 1
+            dialog = VerificationDialog(self)
+            response = dialog.run()
+            if response == Gtk.ResponseType.OK:
+                vercode = dialog.entry2.get_text() + "\n"
+                if InsAltStore.stdin is not None:
+                    InsAltStore.stdin.write(vercode.encode())
+                    InsAltStore.stdin.flush()
+                dialog.destroy()
+                return True
+            else:
+                dialog.destroy()
+                InsAltStore.terminate()
+                self.cancel()
                 self.destroy()
+                return False
+        elif "Notify: Installation Succeeded" in content:
+            self.success()
+            self.destroy()
+            return False
+        return True
 
     def success(self):
         dialog = Gtk.MessageDialog(
