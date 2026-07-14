@@ -121,7 +121,7 @@ def menu():
             f"test -e $HOME/.config/autostart/althea.desktop", shell=True
         )
         if CheckRun12.returncode == 0:
-            command_six.set_active(command_six)
+            command_six.set_active(True)
         command_six.connect("activate", launchatlogin1)
         menu.append(Gtk.SeparatorMenuItem())
         menu.append(command_six)
@@ -487,7 +487,7 @@ class SplashScreen(Handy.Window):
                 allow_redirects=True,
             )
             open(f"{(altheapath)}/am.apk", "wb").write(r.content)
-            os.makedirs(f"{(altheapath)}/lib/x86_64")
+            os.makedirs(f"{(altheapath)}/lib/x86_64", exist_ok=True)
             self.loadalthea.set_fraction(0.3)
             self.lbl1.set_text("Extracting necessary libraries...")
             CheckRunB = subprocess.run(
@@ -500,9 +500,9 @@ class SplashScreen(Handy.Window):
             )
             silent_remove(f"{(altheapath)}/am.apk")
             self.loadalthea.set_fraction(0.4)
-        self.lbl1.set_text("Starting anisette-server...")
-        subprocess.run(f"{(altheapath)}/anisette-server -n 127.0.0.1 -p 6969 &", shell=True)
-        #subprocess.run(f"cd {(altheapath)} && ./anisette-server &", shell=True)#-n 127.0.0.1 -p 6969 &", shell=True
+        if CheckRun.returncode != 0:
+            self.lbl1.set_text("Starting anisette-server...")
+            subprocess.run(f"{(altheapath)}/anisette-server -n 127.0.0.1 -p 6969 &", shell=True)
         self.loadalthea.set_fraction(0.5)
         finished = False
         while not finished:
