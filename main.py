@@ -165,9 +165,18 @@ def paircheck():  # Check if the device is paired already
         return True
 
 def altstoreinstall(_):
-    if version.parse(ios_version()) < version.parse("15.0"):
+    ios_ver = parse_ios_version()
+    if ios_ver is None:
+        global Failmsg
+        Failmsg = "Could not read the iOS version.\nMake sure your device is connected and unlocked."
+        fail_dialog = FailDialog(parent=None)
+        fail_dialog.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        fail_dialog.run()
+        fail_dialog.destroy()
+        return
+    if ios_ver < version.parse("15.0"):
         global Warnmsg
-        Warnmsg = f"""\niOS {ios_version()} is not supported by AltStore.\nThe lowest supported version is iOS 15.0.\nYou can still continue, but errors may occur.\n"""
+        Warnmsg = f"""\niOS {ios_ver} is not supported by AltStore.\nThe lowest supported version is iOS 15.0.\nYou can still continue, but errors may occur.\n"""
         ios_dialog = WarningDialog(parent=None)
         ios_dialog.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         ios_response = ios_dialog.run()
@@ -202,15 +211,20 @@ def altserverfile(_):
 
 def notify():
     if (connectioncheck()) == True:
-        LatestVersion = (
-            urllib.request.urlopen(
-                "https://raw.githubusercontent.com/vyvir/althea/main/resources/version"
+        try:
+            LatestVersion = (
+                urllib.request.urlopen(
+                    "https://raw.githubusercontent.com/vyvir/althea/main/resources/version",
+                    timeout=10,
+                )
+                .readline()
+                .rstrip()
+                .decode()
             )
-            .readline()
-            .rstrip()
-            .decode()
-        )
-        if LatestVersion > LocalVersion:
+            update_available = version.parse(LatestVersion) > version.parse(LocalVersion)
+        except (OSError, version.InvalidVersion):
+            return False
+        if update_available:
             Notify.init("MyProgram")
             n = Notify.Notification.new(
                 "An update is available!",
@@ -364,6 +378,15 @@ def ios_version():
     silent_remove(f"{(altheapath)}/ideviceinfo.txt")
     print(result)
     return(result)
+
+
+def parse_ios_version():
+    # Returns None when no device is connected or ideviceinfo output
+    # could not be parsed, instead of crashing on version.parse("result").
+    try:
+        return version.parse(ios_version())
+    except version.InvalidVersion:
+        return None
 
 # Classes
 class SplashScreen(Handy.Window):
@@ -573,7 +596,8 @@ class Login(Gtk.Window):
         GLib.idle_add(self.install_process)
 
     def onclickmethread(self):
-        if ios_version() >= "15.0":
+        ios_ver = parse_ios_version()
+        if ios_ver is not None and ios_ver >= version.parse("15.0"):
             global savedcheck
             global apple_id
             global password
@@ -597,11 +621,20 @@ class Login(Gtk.Window):
             )
         else:
             global Failmsg
-            Failmsg = "iOS 15.0 or later is required."
-            dialog2 = FailDialog(self)
-            dialog2.run()
-            dialog2.destroy()
-            self.destroy()
+            if ios_ver is None:
+                Failmsg = "Could not read the iOS version.\nMake sure your device is connected and unlocked."
+            else:
+                Failmsg = "iOS 15.0 or later is required."
+            GLib.idle_add(self.show_fail_and_close)
+
+    def show_fail_and_close(self):
+        # GTK must only be touched from the main thread; worker threads
+        # schedule this via GLib.idle_add.
+        dialog2 = FailDialog(self)
+        dialog2.run()
+        dialog2.destroy()
+        self.destroy()
+        return False
 
     def install_process(self):
         Installing = True
