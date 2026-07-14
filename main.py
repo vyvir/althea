@@ -341,34 +341,45 @@ def read_install_log(log_path):
         return handle.read()
 
 
+# The AltStore feed lists two apps both named "AltStore" (the stable app and
+# a separate beta published under com.rileytestut.AltStore.Beta), so match on
+# bundleIdentifier rather than name to avoid depending on feed ordering.
+ALTSTORE_BUNDLE_ID = "com.rileytestut.AltStore"
+
+
 def altstore_download(value):
-    # setting the base URL value
     baseUrl = "https://cdn.altstore.io/file/altstore/apps.json"
 
-    # retrieving data from JSON Data
-    json_data = requests.get(baseUrl)
-    if json_data.status_code == 200:
-        data = json_data.json()
-        for app in data['apps']:
-            if app['name'] == "AltStore":
+    try:
+        json_data = requests.get(baseUrl, timeout=30)
+    except requests.RequestException:
+        return False
+    if json_data.status_code != 200:
+        return False
+    data = json_data.json()
+    for app in data['apps']:
+        if app.get('bundleIdentifier') == ALTSTORE_BUNDLE_ID:
+            for ver_entry in app['versions']:
+                latest = ver_entry.get('downloadURL', '')
+                if not latest.endswith('.ipa'):
+                    continue  # skip Patreon-gated entries (no direct .ipa)
+                ipa_path = f'{(altheapath)}/AltStore.ipa'
                 if value == "Check":
-                    size = app['versions'][0]['size']
-                    return size == os.path.getsize(f'{(altheapath)}/AltStore.ipa')
-                    break
+                    if not os.path.isfile(ipa_path):
+                        return False
+                    return ver_entry['size'] == os.path.getsize(ipa_path)
                 if value == "Download":
-                    latest = app['versions'][0]['downloadURL']
-                    r = requests.get(
-                        latest,
-                        allow_redirects=True,
-                    )
+                    try:
+                        r = requests.get(latest, allow_redirects=True, timeout=600)
+                        r.raise_for_status()
+                    except requests.RequestException:
+                        return False
                     latest_filename = latest.split('/')[-1]
                     open(f"{(altheapath)}/{(latest_filename)}", "wb").write(r.content)
-                    os.rename(f"{(altheapath)}/{(latest_filename)}", f"{(altheapath)}/AltStore.ipa")
-                    subprocess.run(f"chmod 755 {(altheapath)}/AltStore.ipa", shell=True)
-                    break
-        return True
-    else:
-        return False
+                    os.replace(f"{(altheapath)}/{(latest_filename)}", ipa_path)
+                    return True
+            return False
+    return False
 
 def ios_version():
     silent_remove(f"{(altheapath)}/ideviceinfo.txt")
