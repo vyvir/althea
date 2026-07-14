@@ -40,18 +40,14 @@ computer_cpu_platform = platform.machine()
 
 def resource_path(relative_path):
     global installedcheck
-    CheckRun10 = subprocess.run(
-        f"find /usr/lib/althea/althea > /dev/null 2>&1", shell=True
-    )
-    if CheckRun10.returncode == 0:
+    installed_path = "/usr/lib/althea/althea"
+    if os.path.exists(installed_path):
         installedcheck = True
         base_path = "/usr/lib/althea"
     else:
-        base_path = os.path.abspath(".")
+        installedcheck = False
+        base_path = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(base_path, relative_path)
-
-    installedcheck = subprocess.run("test -e /usr/lib/althea/althea", shell=True).returncode == 0
-    base_path = "/usr/lib/althea" if installedcheck else os.path.abspath(".")
 
 
 # Global variables
@@ -67,15 +63,16 @@ Warnmsg = "warn"
 Failmsg = "fail"
 icon_name = "changes-prevent-symbolic"
 command_six = Gtk.CheckMenuItem(label="Launch at Login")
-AltServer = "$HOME/.local/share/althea/AltServer"
-AnisetteServer = "$HOME/.local/share/althea/anisette-server"
-AltStore = "$HOME/.local/share/althea/AltStore.ipa"
-PATH = AltStore
-AutoStart = resource_path("resources/AutoStart.sh")
+home_dir = os.path.expanduser("~") or os.environ.get("HOME", "")
 altheapath = os.path.join(
-    os.environ.get("XDG_DATA_HOME") or f'{ os.environ["HOME"] }/.local/share',
+    os.environ.get("XDG_DATA_HOME") or os.path.join(home_dir, ".local", "share"),
     "althea",
 )
+AltServer = os.path.join(altheapath, "AltServer")
+AnisetteServer = os.path.join(altheapath, "anisette-server")
+AltStore = os.path.join(altheapath, "AltStore.ipa")
+PATH = AltStore
+AutoStart = resource_path("resources/AutoStart.sh")
 export_anisette = "export ALTSERVER_ANISETTE_SERVER='http://127.0.0.1:6969'"
 
 # Check version
@@ -589,8 +586,8 @@ class Login(Gtk.Window):
             silent_remove(f"{(altheapath)}/log.txt")
             #f = open(f"{(altheapath)}/log.txt", "w")
             #f.close()
-            if os.path.isdir(f'{ os.environ["HOME"] }/.adi'):
-                rmtree(f'{ os.environ["HOME"] }/.adi')
+            if os.path.isdir(os.path.join(home_dir, ".adi")):
+                rmtree(os.path.join(home_dir, ".adi"))
             InsAltStoreCMD = f"""{export_anisette} ; {(AltServer)} -u {UDID} -a {apple_id} -p \"{password}\" {PATH} > {("$HOME/.local/share/althea/log.txt")}"""
             InsAltStore = subprocess.Popen(
                 InsAltStoreCMD,
@@ -1066,8 +1063,7 @@ def main():
     GLib.set_prgname("althea")  # Sets the global program name
     global altheapath
     #global file_name
-    if not os.path.exists(altheapath):  # Creates $HOME/.local/share/althea
-        os.mkdir(altheapath)
+    os.makedirs(altheapath, exist_ok=True)
     if Gtk.StatusIcon.is_embedded:
         if connectioncheck():
             global indicator
